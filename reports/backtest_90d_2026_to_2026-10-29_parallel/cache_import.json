@@ -1,0 +1,5 @@
+{
+  "source_protocol": "reports\\backtest_90d_2026_to_2026-10-29\\protocol.json",
+  "change": "Execution-only: allow four concurrent daily fits instead of two; model/features/inputs unchanged. Only completed atomic per-day caches copied.",
+  "copied_days": 54
+}

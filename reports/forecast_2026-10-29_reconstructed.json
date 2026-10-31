@@ -1,0 +1,45 @@
+{
+  "target_date": "2026-10-29",
+  "history_end": "2026-10-28",
+  "status": "reconstructed from saved pre-target data; actual outcome not yet verified",
+  "source_sha256": "d28ec25988587303088d7f637fb4ad577944a6dd028d51e980db02a5166b13f2",
+  "parameters": {
+    "objective": "binary",
+    "n_estimators": 200,
+    "learning_rate": 0.05,
+    "num_leaves": 15,
+    "min_child_samples": 50,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "prediction": [
+    [
+      "34",
+      0.3016924887161322
+    ],
+    [
+      "68",
+      0.2786491416276401
+    ],
+    [
+      "38",
+      0.2739691213161028
+    ],
+    [
+      "64",
+      0.2717342378497739
+    ],
+    [
+      "61",
+      0.27072091257789094
+    ],
+    [
+      "33",
+      0.2691589002481761
+    ]
+  ]
+}

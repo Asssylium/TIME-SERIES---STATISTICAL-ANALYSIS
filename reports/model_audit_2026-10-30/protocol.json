@@ -1,0 +1,98 @@
+{
+  "source": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\reports\\backtest_90d_2026_to_2026-10-29_parallel\\source_snapshot.csv",
+  "source_sha256": "d5d6cd5a350f44093dcf6d7df78e6b806cbc34c35a07ec7aea1737a8d274593d",
+  "calibration_blocks": [
+    [
+      "2025-01-01",
+      "2025-03-31"
+    ],
+    [
+      "2025-04-01",
+      "2025-06-30"
+    ],
+    [
+      "2025-07-01",
+      "2025-09-30"
+    ],
+    [
+      "2025-10-01",
+      "2025-12-31"
+    ]
+  ],
+  "retrospective_blocks": [
+    [
+      "2026-01-01",
+      "2026-03-31"
+    ],
+    [
+      "2026-04-01",
+      "2026-06-30"
+    ],
+    [
+      "2026-07-01",
+      "2026-09-30"
+    ],
+    [
+      "2026-10-01",
+      "2026-10-29"
+    ]
+  ],
+  "models": [
+    "original_binary",
+    "regularized_binary",
+    "count_poisson",
+    "rolling_30"
+  ],
+  "original_parameters": {
+    "objective": "binary",
+    "n_estimators": 200,
+    "learning_rate": 0.05,
+    "num_leaves": 15,
+    "min_child_samples": 50,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "regularized_parameters": {
+    "objective": "binary",
+    "n_estimators": 100,
+    "learning_rate": 0.03,
+    "num_leaves": 7,
+    "min_child_samples": 200,
+    "reg_lambda": 20.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "count_parameters": {
+    "objective": "poisson",
+    "n_estimators": 100,
+    "learning_rate": 0.03,
+    "num_leaves": 7,
+    "min_child_samples": 200,
+    "reg_lambda": 20.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "calibration_anchor_from_history_before_2025": 0.23844357976653696,
+  "training": "Original: all history. Regularized binary and Poisson: preceding 1095 calendar days, identical normalized features. All ML refit at quarter start only; training target dates strictly before quarter start.",
+  "selection": "No parameter/model/K search; K1..6 all reported. Calibration fitted solely on 2025 OOF predictions, frozen for 2026. No automatic replacement of production model.",
+  "caution": "2026 has already been examined. This is retrospective method comparison, not untouched or prospective evidence. Calibration can improve Brier without improving ranking.",
+  "code_sha256": {
+    "audit_experiment.py": "3da3000e7bce97dfb45952199eae85c01ad083c3d6da785d2f81be192b7af91b",
+    "src/models.py": "3ba213bb181e2d01de0119af6f654a4c592e4704f6a908fb3c8fab4ae0ad7155",
+    "src/features.py": "2f8ff1dd296ab83496a1cf2f1695316b0d4d8f4044fc08fb26354c7976ec212b",
+    "src/count_models.py": "86bae24d419bd7f5f38b6d6fd48323a0a04204343ae3d524368bb8bd76d3017e",
+    "src/count_features.py": "e87508639ee1c6af4eae2139b271a3ce475756c36eeddc21b3714d11ae1a56fd",
+    "src/calibration.py": "f397d5f8b3934096f9ea844cbc2a30ae1e7cfc79784c0fba473b432c6c71cd1d",
+    "src/diagnostics.py": "9020a9bf832a1d2b4af8e3728c209d23bb342dfa456c9e234ffa0acedffa7f62"
+  }
+}

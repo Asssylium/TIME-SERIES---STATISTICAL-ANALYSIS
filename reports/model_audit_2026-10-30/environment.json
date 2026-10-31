@@ -1,0 +1,8 @@
+{
+  "python": "3.13.12",
+  "numpy": "2.5.4",
+  "pandas": "3.1.0",
+  "scikit_learn": "1.9.1",
+  "lightgbm": "4.7.0",
+  "note": "Recorded after run; supplements frozen protocol without modifying it."
+}

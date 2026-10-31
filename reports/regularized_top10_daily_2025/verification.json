@@ -1,0 +1,12 @@
+{
+  "independent_cash_flow_check": "passed",
+  "daily_rankings_match_saved_scores": true,
+  "training_cutoffs_before_targets": true,
+  "calendar_days_checked": 365,
+  "evaluated_days_checked": 360,
+  "excluded_days_checked": 5,
+  "cost": 82800000,
+  "receipts": 77360000,
+  "profit": -5440000,
+  "occurrences": 967
+}

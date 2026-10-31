@@ -1,0 +1,11 @@
+﻿forecast_date,model,rank,number,score,score_type,calibrated_probability
+2026-10-30,prize_binary,1,16,0.262982995864622,uncalibrated_presence_probability,0.23844357976653696
+2026-10-30,prize_binary,2,96,0.26227564038984735,uncalibrated_presence_probability,0.23844357976653696
+2026-10-30,prize_binary,3,90,0.2609924714046226,uncalibrated_presence_probability,0.23844357976653696
+2026-10-30,prize_binary,4,86,0.2569449155885202,uncalibrated_presence_probability,0.23844357976653696
+2026-10-30,prize_binary,5,91,0.2560767008212595,uncalibrated_presence_probability,0.23844357976653696
+2026-10-30,prize_poisson,1,45,0.29472698680508047,expected_occurrences,
+2026-10-30,prize_poisson,2,86,0.2929710921340004,expected_occurrences,
+2026-10-30,prize_poisson,3,96,0.29256960402226806,expected_occurrences,
+2026-10-30,prize_poisson,4,75,0.29095106326228604,expected_occurrences,
+2026-10-30,prize_poisson,5,91,0.28827490370881803,expected_occurrences,

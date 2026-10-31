@@ -1,0 +1,40 @@
+{
+  "start": "2026-01-01",
+  "end": "2026-10-29",
+  "period_days": 90,
+  "top_k": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "source_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb-sparse.csv",
+  "frequency_sha256": "d5d6cd5a350f44093dcf6d7df78e6b806cbc34c35a07ec7aea1737a8d274593d",
+  "model_parameters": {
+    "objective": "binary",
+    "n_estimators": 200,
+    "learning_rate": 0.05,
+    "num_leaves": 15,
+    "min_child_samples": 50,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "stake": 23000,
+  "gross_payout": 80000,
+  "payout_mode": "per_occurrence",
+  "training": "Fresh all-history fit before every target date; training labels end before target; same ranking for all K; no tuning.",
+  "missing_dates": "Require actual target and preceding calendar day. Exclude unavailable evaluations, itemize them; do not impute zero outcomes or assume abstention.",
+  "code_sha256": {
+    "backtest_periods.py": "c7e1ec3c5872300a3f99e001f3e2edefda48a3688294003ea5b56598a02cc813",
+    "src/data_loader.py": "9b5716b86ce7239fe419c9e386287137fd9c60ef550f30952004665cb2c2f79e",
+    "src/features.py": "2f8ff1dd296ab83496a1cf2f1695316b0d4d8f4044fc08fb26354c7976ec212b",
+    "src/models.py": "3ba213bb181e2d01de0119af6f654a4c592e4704f6a908fb3c8fab4ae0ad7155",
+    "src/diagnostics.py": "9020a9bf832a1d2b4af8e3728c209d23bb342dfa456c9e234ffa0acedffa7f62"
+  }
+}

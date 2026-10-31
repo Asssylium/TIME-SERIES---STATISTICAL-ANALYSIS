@@ -1,0 +1,6 @@
+{
+  "training_label_start": "2005-10-02",
+  "training_label_end": "2026-07-30",
+  "first_test_target": "2026-07-31",
+  "last_test_target": "2026-10-28"
+}

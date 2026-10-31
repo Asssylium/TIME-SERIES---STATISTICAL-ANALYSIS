@@ -1,0 +1,14 @@
+{
+  "original_binary": {
+    "anchor": 0.23844357976653696,
+    "weight": 0.0
+  },
+  "regularized_binary": {
+    "anchor": 0.23844357976653696,
+    "weight": 0.0
+  },
+  "rolling_30": {
+    "anchor": 0.23844357976653696,
+    "weight": 0.0
+  }
+}

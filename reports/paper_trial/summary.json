@@ -1,0 +1,115 @@
+{
+  "protocol": {
+    "code_sha256": {
+      "paper_trade.py": "e2d168591ccfd2e0bc6082ef023505c74e14145949e53e9eccd559a70c6fa358",
+      "src/count_features.py": "e87508639ee1c6af4eae2139b271a3ce475756c36eeddc21b3714d11ae1a56fd",
+      "src/count_models.py": "86bae24d419bd7f5f38b6d6fd48323a0a04204343ae3d524368bb8bd76d3017e",
+      "src/data_loader.py": "9b5716b86ce7239fe419c9e386287137fd9c60ef550f30952004665cb2c2f79e",
+      "src/features.py": "2f8ff1dd296ab83496a1cf2f1695316b0d4d8f4044fc08fb26354c7976ec212b",
+      "src/paper_trading.py": "0eb5a4698e1cae01f623611667ed5e4873918a27d460002a2fd5f64eaf428d4a",
+      "src/prize_features.py": "359a61566439526d98f28b007e16e0bcb979af8cd65c37d491fd7538adf1b517",
+      "src/prize_models.py": "851f78c2ffd69ab27ffe178f31e5cabee141f8595a8ae6863195e78babcbef21",
+      "src/regularized_models.py": "2454f8f3538ef2e303622ad16837cdcbcf7fba0235b2299c3b047d180c1640b4"
+    },
+    "days": 90,
+    "end": "2027-01-27",
+    "environment": {
+      "lightgbm": "4.7.0",
+      "numpy": "2.5.4",
+      "pandas": "3.1.0",
+      "scikit-learn": "1.9.1"
+    },
+    "forecast_deadline": "18:00",
+    "gross_per_occurrence": 80000,
+    "history_days": 1095,
+    "missing_days": "Missing forecasts are coverage failures, not losses or abstentions.",
+    "mode": "paper_only",
+    "models": [
+      "prize_poisson",
+      "prize_binary",
+      "regularized"
+    ],
+    "parameters": {
+      "prize_binary": {
+        "deterministic": true,
+        "force_col_wise": true,
+        "learning_rate": 0.03,
+        "min_child_samples": 200,
+        "n_estimators": 100,
+        "n_jobs": 1,
+        "num_leaves": 7,
+        "objective": "binary",
+        "random_state": 42,
+        "reg_lambda": 20.0,
+        "verbosity": -1
+      },
+      "prize_poisson": {
+        "deterministic": true,
+        "force_col_wise": true,
+        "learning_rate": 0.03,
+        "min_child_samples": 200,
+        "n_estimators": 100,
+        "n_jobs": 1,
+        "num_leaves": 7,
+        "objective": "poisson",
+        "random_state": 42,
+        "reg_lambda": 20.0,
+        "verbosity": -1
+      },
+      "regularized": {
+        "deterministic": true,
+        "force_col_wise": true,
+        "learning_rate": 0.03,
+        "min_child_samples": 200,
+        "n_estimators": 100,
+        "n_jobs": 1,
+        "num_leaves": 7,
+        "objective": "binary",
+        "random_state": 42,
+        "reg_lambda": 20.0,
+        "verbosity": -1
+      }
+    },
+    "primary": "prize_poisson",
+    "refit": "initial start, then each calendar quarter",
+    "schema": 1,
+    "selection": "Primary/model/K/evaluation horizon frozen; no winner switching.",
+    "settlement_not_before": "19:00",
+    "source_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb.csv",
+    "stake": 23000,
+    "start": "2026-10-30",
+    "timestamp_limit": "Local system clock; no trusted external timestamp.",
+    "timezone": "UTC+07:00",
+    "top_k": 5
+  },
+  "generated_utc": "2026-10-30T10:00:08.324984+00:00",
+  "forecasts_recorded": 1,
+  "awaiting_results": 1,
+  "missing_forecasts": 0,
+  "models": {
+    "prize_poisson": {
+      "days_settled": 0,
+      "cost": 0,
+      "receipts": 0,
+      "profit": 0,
+      "roi": null,
+      "max_drawdown": 0.0
+    },
+    "prize_binary": {
+      "days_settled": 0,
+      "cost": 0,
+      "receipts": 0,
+      "profit": 0,
+      "roi": null,
+      "max_drawdown": 0.0
+    },
+    "regularized": {
+      "days_settled": 0,
+      "cost": 0,
+      "receipts": 0,
+      "profit": 0,
+      "roi": null,
+      "max_drawdown": 0.0
+    }
+  }
+}

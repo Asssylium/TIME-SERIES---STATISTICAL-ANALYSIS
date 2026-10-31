@@ -1,0 +1,115 @@
+{
+  "target_date": "2026-10-29",
+  "actual_source": "User-supplied head/tail image; date supplied by user, not printed in image. Both tables transcribed independently and matched; 27 outcomes. Not independently verified online.",
+  "forecast_source": "forecast_2026-10-29_reconstructed.json",
+  "actual_draws": [
+    "01",
+    "05",
+    "06",
+    "00",
+    "17",
+    "18",
+    "25",
+    "27",
+    "23",
+    "26",
+    "37",
+    "34",
+    "45",
+    "49",
+    "49",
+    "52",
+    "52",
+    "51",
+    "59",
+    "55",
+    "69",
+    "88",
+    "81",
+    "85",
+    "84",
+    "92",
+    "96"
+  ],
+  "payout_mode": "per_occurrence",
+  "results": [
+    {
+      "top_k": 3,
+      "prediction": [
+        "34",
+        "68",
+        "38"
+      ],
+      "hits": {
+        "34": 1
+      },
+      "occurrences": 1,
+      "cost": 69000,
+      "receipts": 80000,
+      "profit": 11000,
+      "cumulative_31_days_cost": 2139000.0,
+      "cumulative_31_days_profit": 181000.0,
+      "cumulative_31_days_roi": 0.08461898083216457
+    },
+    {
+      "top_k": 4,
+      "prediction": [
+        "34",
+        "68",
+        "38",
+        "64"
+      ],
+      "hits": {
+        "34": 1
+      },
+      "occurrences": 1,
+      "cost": 92000,
+      "receipts": 80000,
+      "profit": -12000,
+      "cumulative_31_days_cost": 2852000.0,
+      "cumulative_31_days_profit": -212000.0,
+      "cumulative_31_days_roi": -0.07433380084151472
+    },
+    {
+      "top_k": 5,
+      "prediction": [
+        "34",
+        "68",
+        "38",
+        "64",
+        "61"
+      ],
+      "hits": {
+        "34": 1
+      },
+      "occurrences": 1,
+      "cost": 115000,
+      "receipts": 80000,
+      "profit": -35000,
+      "cumulative_31_days_cost": 3565000.0,
+      "cumulative_31_days_profit": -285000.0,
+      "cumulative_31_days_roi": -0.07994389901823282
+    },
+    {
+      "top_k": 6,
+      "prediction": [
+        "34",
+        "68",
+        "38",
+        "64",
+        "61",
+        "33"
+      ],
+      "hits": {
+        "34": 1
+      },
+      "occurrences": 1,
+      "cost": 138000,
+      "receipts": 80000,
+      "profit": -58000,
+      "cumulative_31_days_cost": 4278000.0,
+      "cumulative_31_days_profit": -758000.0,
+      "cumulative_31_days_roi": -0.1771856007480131
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "code_hash_matches": {
+    "train_prize_model.py": true,
+    "src/prize_features.py": true,
+    "src/prize_models.py": true,
+    "src/count_features.py": true,
+    "src/count_models.py": true,
+    "src/features.py": true,
+    "src/regularized_models.py": true,
+    "src/data_loader.py": true,
+    "src/calibration.py": true,
+    "src/diagnostics.py": true
+  },
+  "all_24_training_cutoffs_strictly_prior": true,
+  "independently_recounted_daily_rows": 5913,
+  "feature_prefix_cutoffs_exact": [
+    "2026-06-30",
+    "2026-09-29"
+  ],
+  "q3_binary_fresh_fit_latest_label": "2026-06-30",
+  "q3_binary_cached_scores_exactly_reproduced": 9200,
+  "q3_binary_top5": {
+    "days": 92,
+    "occurrences": 157,
+    "profit": 1980000,
+    "mean_daily_profit_95_descriptive": [
+      3260.8695652173915,
+      40652.17391304348
+    ],
+    "three_highest_profit_days": [
+      {
+        "date": "2026-09-25",
+        "paid_occurrences": 6,
+        "profit": 365000
+      },
+      {
+        "date": "2026-08-22",
+        "paid_occurrences": 5,
+        "profit": 285000
+      },
+      {
+        "date": "2026-09-18",
+        "paid_occurrences": 5,
+        "profit": 285000
+      }
+    ],
+    "profit_excluding_three_best_days_sensitivity_only": 1045000
+  },
+  "reported_quarter_model_k_combinations": 72,
+  "positive_combinations": 20,
+  "limitations": [
+    "Same historical periods inspected repeatedly; no untouched holdout.",
+    "No correction for complete historical model/feature/K/period search; total search count unknown.",
+    "Q3 bootstrap describes a retrospectively selected result, not a selection-adjusted significance test.",
+    "Historical source snapshot cannot establish what the upstream source contained on each forecast date.",
+    "Draw order follows user confirmation; named slot columns do not by themselves model a learned sequential transition.",
+    "Removing best days is descriptive sensitivity, not an alternative trading rule."
+  ]
+}

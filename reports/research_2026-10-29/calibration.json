@@ -1,0 +1,100 @@
+{
+  "window_7": {
+    "enabled": false,
+    "slope": -0.023641740719112174,
+    "intercept": -1.1875098938562656,
+    "raw_check_brier": 0.18303864925561728,
+    "calibrated_check_brier": 0.18200221323121601
+  },
+  "window_14": {
+    "enabled": true,
+    "slope": 0.019335617410994266,
+    "intercept": -1.1376441785758302,
+    "raw_check_brier": 0.183405480198606,
+    "calibrated_check_brier": 0.18200615678175486
+  },
+  "window_30": {
+    "enabled": true,
+    "slope": 0.09067000075319798,
+    "intercept": -1.0535437046979303,
+    "raw_check_brier": 0.18377253013835068,
+    "calibrated_check_brier": 0.1820387196381783
+  },
+  "window_60": {
+    "enabled": false,
+    "slope": -0.02204703592088742,
+    "intercept": -1.1858490289039771,
+    "raw_check_brier": 0.1834342183639265,
+    "calibrated_check_brier": 0.18200285980336894
+  },
+  "window_90": {
+    "enabled": false,
+    "slope": -0.0993078674462538,
+    "intercept": -1.2761373833780463,
+    "raw_check_brier": 0.1833823716661724,
+    "calibrated_check_brier": 0.18198553951122365
+  },
+  "window_365": {
+    "enabled": false,
+    "slope": -0.48537171103255494,
+    "intercept": -1.7270685618885913,
+    "raw_check_brier": 0.1824516562095118,
+    "calibrated_check_brier": 0.18203789234250814
+  },
+  "historical": {
+    "enabled": false,
+    "slope": -1.9748040836004523,
+    "intercept": -3.4540185440583815,
+    "raw_check_brier": 0.182004576573878,
+    "calibrated_check_brier": 0.18215439884505316
+  },
+  "ewma_30": {
+    "enabled": true,
+    "slope": 0.00039844374204552296,
+    "intercept": -1.1593642216752882,
+    "raw_check_brier": 0.18826985046027664,
+    "calibrated_check_brier": 0.1820041812946877
+  },
+  "ewma_90": {
+    "enabled": false,
+    "slope": -0.02473129329537891,
+    "intercept": -1.1889109263656557,
+    "raw_check_brier": 0.18416136381257642,
+    "calibrated_check_brier": 0.18199953652420772
+  },
+  "markov_smoothed": {
+    "enabled": false,
+    "slope": -0.8718377442330514,
+    "intercept": -2.1725896993148632,
+    "raw_check_brier": 0.18204335262267068,
+    "calibrated_check_brier": 0.1820518739047402
+  },
+  "logistic_3y": {
+    "enabled": true,
+    "slope": 0.05479838193868172,
+    "intercept": -1.0963733859999196,
+    "raw_check_brier": 0.1821459462125661,
+    "calibrated_check_brier": 0.18200089212447343
+  },
+  "lgbm_original": {
+    "enabled": false,
+    "slope": -0.028180833745216807,
+    "intercept": -1.1931744528336494,
+    "raw_check_brier": 0.18282996945212365,
+    "calibrated_check_brier": 0.18200070658474987
+  },
+  "lgbm_regularized_3y": {
+    "enabled": false,
+    "slope": -0.3634432248057721,
+    "intercept": -1.584291758513926,
+    "raw_check_brier": 0.18239267623383584,
+    "calibrated_check_brier": 0.18193945682085869
+  },
+  "poisson_3y": {
+    "enabled": false,
+    "slope": -0.2280145739190542,
+    "intercept": -1.426706556127433,
+    "raw_check_brier": 0.18220088265809872,
+    "calibrated_check_brier": 0.18197888890824776
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "regularized": {
+    "anchor": 0.23844357976653696,
+    "weight": 0.0,
+    "fit_target_year": 2025
+  },
+  "prize_binary": {
+    "anchor": 0.23844357976653696,
+    "weight": 0.0,
+    "fit_target_year": 2025
+  }
+}
