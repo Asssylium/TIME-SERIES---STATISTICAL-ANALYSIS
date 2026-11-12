@@ -1,12 +1,21 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" }
+    { "src": "api/index.py", "use": "@vercel/python" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "includeFiles": ["data/**/*.csv", "data/**/*.json"]
+      "includeFiles": ["data/**/*.csv", "data/**/*.json"],
+      "excludeFiles": [
+        "tests/**",
+        "reports/**",
+        "work/**",
+        "scripts/**",
+        "public/**"
+      ]
     }
   },
   "routes": [
