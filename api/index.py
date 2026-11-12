@@ -1,7 +1,7 @@
 """Vercel-compatible HTTP API for the forecasting project.
 
-The Streamlit dashboard remains available for local analysis.  This module is
-the stateless serverless entry point used by Vercel and exposes only the
+This module serves the browser dashboard locally and is the stateless
+serverless entry point used by Vercel. It exposes only the
 operations needed by the browser dashboard.
 """
 
@@ -20,6 +20,10 @@ from flask import Flask, jsonify, request, send_from_directory
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from src.native_runtime import load_bundled_openmp  # noqa: E402
+
+load_bundled_openmp()
 
 from main import run_pipeline  # noqa: E402
 from src.count_features import COUNT_TARGET  # noqa: E402

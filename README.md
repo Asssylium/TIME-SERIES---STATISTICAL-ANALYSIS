@@ -44,7 +44,7 @@ The system combines:
 ```text
 .
 ├── main.py                     # Stable CLI pipeline entry point
-├── app.py                      # Streamlit dashboard
+├── public/                     # Browser dashboard served locally and on Vercel
 ├── api/                        # Vercel serverless API
 ├── scripts/
 │   ├── research/               # Research experiments
@@ -106,30 +106,18 @@ This avoids leakage and reflects the constraints of real forecasting.
 
 ### Web application
 
-The project now includes a local Streamlit dashboard that reuses the same
-validated `run_pipeline` entry point as the command-line workflow. It provides
-dataset health, trailing-frequency context, configurable forecasts, curated
-model comparison, daily benchmark history, and CSV export.
+Run the Flask API locally to use the same browser dashboard deployed on Vercel.
 
 ```powershell
 Set-Location 'D:\TIME-SERIES & STATISTICAL ANALYSIS'
-uv run --with-requirements requirements.txt --with streamlit streamlit run app.py
+uv run --with-requirements requirements.txt python -m flask --app api.index run --port 8000
 ```
 
-Or use the convenience launcher:
-
-```powershell
-.\run_webapp.ps1 -Port 8501
-```
-
-The app opens at `http://localhost:8501`. Forecast runs use the selected local
-CSV and never mutate the curated reports tree. The UI is an analysis surface,
-not a betting or execution system.
+Open `http://localhost:8000`. Press Ctrl+C in the terminal to stop the server.
 
 ### Vercel deployment
 
-Vercel cannot run the Streamlit process itself, so the repository also includes
-a serverless Flask API and a small browser dashboard. The Vercel entry point is
+The project uses a serverless Flask API and a browser dashboard. The Vercel entry point is
 `api/index.py`; bundled CSV files under `data/` are available as selectable
 sources, while the live GitHub feed remains available for online deployments.
 
@@ -150,8 +138,7 @@ vercel
 vercel --prod
 ```
 
-The deployment uses `vercel.json`, keeps the existing Streamlit launcher for
-local analysis, and exposes `/api/health`, `/api/sources`, and
+The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
 `POST /api/forecast` for the browser UI or other clients.
 
 Open PowerShell in the repository folder:
