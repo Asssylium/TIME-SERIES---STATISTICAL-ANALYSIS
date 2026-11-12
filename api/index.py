@@ -119,6 +119,11 @@ def _forecast_payload(result: Any, source_id: str, model: str, top_k: int, test_
     return _json_safe(
         {
             "target_date": result.prediction_date.strftime("%Y-%m-%d"),
+            "data_through_date": (
+                result.data_through_date.strftime("%Y-%m-%d")
+                if result.data_through_date is not None else None
+            ),
+            "forecast_horizon_days": result.forecast_horizon_days,
             "source": source_id,
             "model": model,
             "top_k": top_k,
@@ -171,7 +176,13 @@ def _prize_poisson_90d_result(
     """Refit the causal 90-day model and forecast one requested target."""
     origins = data.index.get_level_values(0)
     labels = origins + pd.Timedelta(days=1)
-    origin = target - pd.Timedelta(days=1)
+    available_origins = pd.DatetimeIndex(origins.unique())
+    prior_origins = available_origins[available_origins < target]
+    if prior_origins.empty:
+        raise ValueError(
+            f"No completed draw is available before {target:%Y-%m-%d}."
+        )
+    origin = prior_origins.max()
     training_mask = (
         data[COUNT_TARGET].notna().to_numpy()
         & (labels >= target - pd.Timedelta(days=PRIZE_POISSON_HISTORY_DAYS))
@@ -183,9 +194,7 @@ def _prize_poisson_90d_result(
     if train.empty:
         raise ValueError(f"No labeled training data is available before {target:%Y-%m-%d}.")
     if len(inference) != 100:
-        raise ValueError(
-            f"The completed draw for {origin:%Y-%m-%d} is required to forecast {target:%Y-%m-%d}."
-        )
+        raise ValueError(f"Could not build inference rows through {origin:%Y-%m-%d}.")
     model = PrizeLGBMPredictor(
         "poisson",
         history_days=PRIZE_POISSON_HISTORY_DAYS,
@@ -196,6 +205,8 @@ def _prize_poisson_90d_result(
     ranked = scores.sort_values(ascending=False, kind="stable").head(top_k)
     return {
         "target_date": target.strftime("%Y-%m-%d"),
+        "data_through_date": origin.strftime("%Y-%m-%d"),
+        "forecast_horizon_days": int((target - origin).days),
         "training_start_date": training_labels.min().strftime("%Y-%m-%d"),
         "training_end_date": training_labels.max().strftime("%Y-%m-%d"),
         "forecasts": {

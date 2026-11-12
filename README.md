@@ -155,8 +155,9 @@ version `1.0`. Its `models[].series[]` rows use stable names for `date`, `hits`,
 are VND. The Chart analysis page can run selected models over 30 days, 90 days,
 12 months, or a custom 30–366 day range and can export these rows as CSV.
 
-`poisson_prize_90d` accepts a historical `target_date` as long as the previous
-calendar day's completed draw exists. Add `target_end_date` to run an inclusive
+`poisson_prize_90d` accepts a historical `target_date` and uses the latest
+completed draw strictly before that target. Missing calendar dates remain
+unobserved and are excluded from scoring. Add `target_end_date` to run an inclusive
 walk-forward range; every date is independently refitted with labels strictly
 before its target. The dashboard automatically splits long selections into
 31-day requests and combines the daily results. Direct API clients should do

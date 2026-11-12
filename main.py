@@ -47,6 +47,8 @@ class PipelineResult:
     evaluations: dict[str, EvaluationResult]
     forecasts: dict[str, TopK]
     payouts: dict[str, PayoutResult] = field(default_factory=dict)
+    data_through_date: pd.Timestamp | None = None
+    forecast_horizon_days: int = 1
 
 
 def run_pipeline(
@@ -85,9 +87,10 @@ def run_pipeline(
     forecasts are 30-day frequency counts and are explicitly labeled as such.
     By default the final forecast date is last observed date + 1, not the
     machine's date. forecast_date accepts YYYY-MM-DD and cuts off all outcomes
-    on or after that date before creating features or labels. Its preceding
-    calendar day's result must be available. Test metrics cover earlier days;
-    they do not evaluate the requested forecast day's result.
+    on or after that date before creating features or labels. If one or more
+    preceding calendar dates are missing, the latest earlier completed draw is
+    used and the gap remains unobserved. Test metrics cover earlier days; they
+    do not evaluate the requested forecast day's result.
     """
     if model not in {"baseline", "lightgbm", "regularized", "poisson", "both", "all"}:
         raise ValueError("model must be baseline, lightgbm, regularized, poisson, both, or all.")
@@ -126,17 +129,17 @@ def run_pipeline(
         # Cut BOTH matrices before constructing any features, labels, or splits:
         # a historical forecast must never see its own outcome or later draws.
         source_end = frequency.index[-1]
-        previous_day = requested_date - pd.Timedelta(days=1)
         frequency = frequency.loc[frequency.index < requested_date]
         binary = binary.loc[binary.index < requested_date]
-        if frequency.empty or frequency.index[-1] != previous_day:
+        if frequency.empty:
             raise ValueError(
-                f"Cannot forecast {requested_date:%Y-%m-%d}: require the draw for "
-                f"the preceding calendar day {previous_day:%Y-%m-%d}. "
-                f"Source data ends on {source_end:%Y-%m-%d}; choose an available "
-                "next-day date or update --url with the missing results."
+                f"Cannot forecast {requested_date:%Y-%m-%d}: no completed draw "
+                f"is available before it. Source data ends on {source_end:%Y-%m-%d}."
             )
-        print(f"Requested forecast: {requested_date:%Y-%m-%d}; using results only through {previous_day:%Y-%m-%d}.")
+        print(
+            f"Requested forecast: {requested_date:%Y-%m-%d}; using results only "
+            f"through {frequency.index[-1]:%Y-%m-%d}. Missing dates remain unobserved."
+        )
     print(f"Observed days: {len(frequency):,}; {frequency.index[0]:%Y-%m-%d} to {frequency.index[-1]:%Y-%m-%d}")
 
     print("[2/5] Building causal rolling and gap features...", flush=True)
@@ -261,7 +264,11 @@ def run_pipeline(
 
     # Test metrics are now finalized. It is safe to use all observed labels
     # (including former test outcomes) for a separate, future-facing model.
-    prediction_date = frequency.index[-1] + one_day
+    prediction_date = (
+        requested_date
+        if requested_date is not None
+        else frequency.index[-1] + one_day
+    )
     print(f"\n[5/5] Fitting forecast models for {prediction_date:%Y-%m-%d}...", flush=True)
     for name in names:
         if name == "baseline":
@@ -300,7 +307,12 @@ def run_pipeline(
         print(f"\n{name.upper()} TOP {top_k} FOR {prediction_date:%Y-%m-%d}")
         print(table.to_string(index=False))
 
-    return PipelineResult(train_dates, test_dates, prediction_date, evaluations, forecasts, payouts)
+    data_through_date = frequency.index[-1]
+    return PipelineResult(
+        train_dates, test_dates, prediction_date, evaluations, forecasts, payouts,
+        data_through_date=data_through_date,
+        forecast_horizon_days=int((prediction_date - data_through_date).days),
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

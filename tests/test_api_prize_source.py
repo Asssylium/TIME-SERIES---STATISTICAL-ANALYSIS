@@ -162,6 +162,52 @@ class ApiPrizeSourceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.get_json())
         self.assertEqual(response.get_json()["target_date"], "2026-04-10")
 
+    def test_prize_poisson_uses_latest_completed_draw_when_previous_day_is_missing(self):
+        missing_raw = self.raw.loc[
+            self.raw["date"] != "2026-02-16"
+        ].reset_index(drop=True)
+
+        def load_missing_source(loader):
+            if loader.url == RAW_PRIZE_URL:
+                return missing_raw.copy()
+            frequency, _ = XSMBDataLoader().preprocess_and_build_matrices(missing_raw)
+            return frequency.reset_index()
+
+        inference_dates = []
+
+        class RecordingPredictor:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def fit(self, train):
+                return self
+
+            def predict_scores(self, inference):
+                inference_dates.extend(
+                    inference.index.get_level_values(0).unique().tolist()
+                )
+                return pd.Series(np.arange(100, dtype=float), index=inference.index)
+
+        with (
+            patch.object(
+                XSMBDataLoader, "load_data", autospec=True,
+                side_effect=load_missing_source,
+            ),
+            patch.object(api, "PrizeLGBMPredictor", RecordingPredictor),
+        ):
+            response = api.app.test_client().post("/api/forecast", json={
+                "source": "live",
+                "model": "poisson_prize_90d",
+                "target_date": "2026-02-17",
+            })
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        result = response.get_json()
+        self.assertEqual(result["target_date"], "2026-02-17")
+        self.assertEqual(result["data_through_date"], "2026-02-15")
+        self.assertEqual(result["forecast_horizon_days"], 2)
+        self.assertEqual(inference_dates, [pd.Timestamp("2026-02-15")])
+
     def test_prize_poisson_rejects_range_beyond_next_unseen_date(self):
         with patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source):
             response = api.app.test_client().post("/api/forecast", json={

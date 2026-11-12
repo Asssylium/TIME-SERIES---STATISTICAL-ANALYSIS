@@ -182,33 +182,32 @@ class PipelineTests(unittest.TestCase):
                         pd.testing.assert_frame_equal(actual.evaluations[name].per_day, reference.evaluations[name].per_day)
                         pd.testing.assert_frame_equal(actual.payouts[name].per_day, reference.payouts[name].per_day)
 
-    def test_requested_date_requires_previous_calendar_day_before_features_or_fitting(self) -> None:
-        requested = "2026-02-20"
-        missing_previous = self.raw.loc[self.raw.date != pd.Timestamp("2026-02-19")]
-        cases = [
-            (missing_previous, requested),
-            (self.raw, "2026-01-01"),  # No history before the requested date.
-            (self.raw, (self.raw.date.iloc[-1] + pd.Timedelta(days=2)).strftime("%Y-%m-%d")),
-        ]
-        for raw, date in cases:
-            for model in ["both", "regularized", "poisson"]:
-                with self.subTest(date=date, model=model), \
-                        patch("src.data_loader.urlopen", return_value=io.BytesIO(raw.to_csv(index=False).encode())), \
-                        patch("main.build_feature_dataset") as features, \
-                        patch("main.build_count_feature_dataset") as count_features, \
-                        patch.object(LGBMPredictor, "fit") as fit, \
-                        patch.object(RegularizedLGBMPredictor, "fit") as regularized_fit, \
-                        patch.object(CountLGBMPredictor, "fit") as poisson_fit, \
-                        patch.object(BaselinePredictor, "fit") as baseline_fit, \
-                        redirect_stdout(io.StringIO()):
-                    with self.assertRaises(ValueError):
-                        run_pipeline(model=model, forecast_date=date, test_days=3, n_splits=2)
-                    features.assert_not_called()
-                    count_features.assert_not_called()
-                    fit.assert_not_called()
-                    regularized_fit.assert_not_called()
-                    poisson_fit.assert_not_called()
-                    baseline_fit.assert_not_called()
+    def test_requested_date_uses_latest_completed_draw_across_a_calendar_gap(self) -> None:
+        requested = pd.Timestamp("2026-02-20")
+        raw = self.raw.loc[self.raw.date != requested - pd.Timedelta(days=1)]
+        with patch(
+            "src.data_loader.urlopen",
+            return_value=io.BytesIO(raw.to_csv(index=False).encode()),
+        ), redirect_stdout(io.StringIO()):
+            result = run_pipeline(
+                model="baseline", forecast_date=requested.strftime("%Y-%m-%d"),
+                test_days=3, n_splits=2,
+            )
+        self.assertEqual(result.prediction_date, requested)
+        self.assertEqual(result.data_through_date, requested - pd.Timedelta(days=2))
+        self.assertEqual(result.forecast_horizon_days, 2)
+
+    def test_requested_date_rejects_when_no_earlier_draw_exists(self) -> None:
+        with patch(
+            "src.data_loader.urlopen",
+            return_value=io.BytesIO(self.raw.to_csv(index=False).encode()),
+        ), patch("main.build_feature_dataset") as features, redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, "no completed draw"):
+                run_pipeline(
+                    model="baseline", forecast_date="2026-01-01",
+                    test_days=3, n_splits=2,
+                )
+        features.assert_not_called()
 
     def test_forecast_date_requires_strict_iso_format_before_download(self) -> None:
         for invalid in ["2026-2-20", "20/02/2026", "20260220", "2026-02-30", "2026-02-20T00:00:00",
