@@ -27,7 +27,7 @@ from .regularized_models import RegularizedLGBMPredictor
 LOCAL = timezone(timedelta(hours=7))
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ("prize_poisson", "prize_binary", "regularized")
-CODE_FILES = ("src/paper_trading.py", "paper_trade.py", "src/prize_features.py",
+CODE_FILES = ("src/paper_trading.py", "scripts/operations/paper_trade.py", "src/prize_features.py",
               "src/prize_models.py", "src/regularized_models.py", "src/count_features.py",
               "src/count_models.py", "src/features.py", "src/data_loader.py")
 

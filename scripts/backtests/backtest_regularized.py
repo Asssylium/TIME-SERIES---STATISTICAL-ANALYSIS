@@ -183,7 +183,7 @@ def run(year: int, top_k: int, output: Path, url: str = DEFAULT_XSMB_URL,
     if frequency.index.max() < dates[-1]:
         raise ValueError("Source does not yet cover the requested end date.")
     frequency, binary = frequency.loc[:dates[-1]], binary.loc[:dates[-1]]
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parents[2]
     protocol = {
         "year": year, "top_k": top_k, "model": "regularized", "refit": "daily",
         "start": dates[0].strftime("%Y-%m-%d"), "end": dates[-1].strftime("%Y-%m-%d"),
@@ -194,7 +194,7 @@ def run(year: int, top_k: int, output: Path, url: str = DEFAULT_XSMB_URL,
         "environment": {"python": platform.python_version(), **{
             name: importlib.metadata.version(name) for name in ["numpy", "pandas", "scikit-learn", "lightgbm"]}},
         "code_sha256": {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in [
-            "backtest_regularized.py", "src/count_features.py", "src/count_models.py",
+            "scripts/backtests/backtest_regularized.py", "src/count_features.py", "src/count_models.py",
             "src/features.py", "src/data_loader.py", "src/regularized_models.py", "src/diagnostics.py"]},
         "missing_dates": "Require target outcome and preceding calendar day. Exclude unknown cash flows explicitly.",
         "retrospective": "Historical periods were previously used in model research and evaluation; this is not an untouched prospective test.",

@@ -69,7 +69,7 @@ def run(url: str = RAW_PRIZE_URL, forecast_date: str | None = None, top_k: int =
     out.mkdir(parents=True, exist_ok=True)
     cache = out/"cache"
     cache.mkdir(exist_ok=True)
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parents[2]
     protocol = {
         "source_url": url, "prize_snapshot_sha256": hashlib.sha256(raw.to_csv(index=False).encode()).hexdigest(),
         "forecast_date": str(target.date()), "evaluation_start": str(start.date()),
@@ -88,7 +88,7 @@ def run(url: str = RAW_PRIZE_URL, forecast_date: str | None = None, top_k: int =
         "payout": {"stake": 27000, "gross_per_occurrence": 99000, "count_duplicates": True},
         "environment": {"python": platform.python_version(), **{name: importlib.metadata.version(name) for name in ["numpy", "pandas", "lightgbm", "scikit-learn", "joblib"]}},
         "code_sha256": {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in [
-            "train_prize_model.py", "src/prize_features.py", "src/prize_models.py", "src/count_features.py",
+            "scripts/operations/train_prize_model.py", "src/prize_features.py", "src/prize_models.py", "src/count_features.py",
             "src/count_models.py", "src/features.py", "src/regularized_models.py", "src/data_loader.py", "src/calibration.py", "src/diagnostics.py"]},
     }
     protocol_path = out/"protocol.json"

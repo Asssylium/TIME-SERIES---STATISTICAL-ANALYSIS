@@ -32,7 +32,7 @@ EVALUATION = [('2026-01-01','2026-03-31'),('2026-04-01','2026-06-30'),
 
 def run() -> None:
     """Persist protocol before fitting, calibration before evaluating, and all evidence."""
-    root = Path(__file__).parent
+    root = Path(__file__).resolve().parents[2]
     out = root/'work/reports/model_audit_2026-10-30'
     out.mkdir(parents=True,exist_ok=True)
     cache=out/'cache'
@@ -61,7 +61,7 @@ def run() -> None:
         'selection':'No parameter/model/K search; K1..6 all reported. Calibration fitted solely on 2025 OOF predictions, frozen for 2026. No automatic replacement of production model.',
         'caution':'2026 has already been examined. This is retrospective method comparison, not untouched or prospective evidence. Calibration can improve Brier without improving ranking.',
         'code_sha256':{name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in [
-            'audit_experiment.py','src/models.py','src/features.py','src/count_models.py',
+            'scripts/operations/audit_experiment.py','src/models.py','src/features.py','src/count_models.py',
             'src/count_features.py','src/calibration.py','src/diagnostics.py']},
     }
     protocol=json.loads(json.dumps(protocol))

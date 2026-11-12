@@ -69,7 +69,7 @@ def run(start: str, end: str, output: Path, workers: int = 2, period_days: int =
     frequency, binary = frequency.loc[:end], binary.loc[:end]
     digest = hashlib.sha256(frequency.to_csv().encode()).hexdigest()
     params = LGBMPredictor().params
-    root = Path(__file__).parent
+    root = Path(__file__).resolve().parents[2]
     protocol = {
         'start':start, 'end':end, 'period_days':period_days, 'top_k':[1,2,3,4,5,6],
         'source_url':DEFAULT_XSMB_URL, 'frequency_sha256':digest,
@@ -78,7 +78,7 @@ def run(start: str, end: str, output: Path, workers: int = 2, period_days: int =
         'training':'Fresh all-history fit before every target date; training labels end before target; same ranking for all K; no tuning.',
         'missing_dates':'Require actual target and preceding calendar day. Exclude unavailable evaluations, itemize them; do not impute zero outcomes or assume abstention.',
         'code_sha256':{name:hashlib.sha256((root/name).read_bytes()).hexdigest()
-                       for name in ['backtest_periods.py','src/data_loader.py','src/features.py','src/models.py','src/diagnostics.py']},
+                       for name in ['scripts/backtests/backtest_periods.py','src/data_loader.py','src/features.py','src/models.py','src/diagnostics.py']},
     }
     protocol_path = output / 'protocol.json'
     if protocol_path.exists() and json.loads(protocol_path.read_text(encoding='utf-8')) != protocol:

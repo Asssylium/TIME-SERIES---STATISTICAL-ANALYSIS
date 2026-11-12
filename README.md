@@ -141,6 +141,23 @@ vercel --prod
 The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
 `POST /api/forecast` for the browser UI or other clients.
 
+`poisson_prize_90d` accepts a historical `target_date` as long as the previous
+calendar day's completed draw exists. Add `target_end_date` to run an inclusive
+walk-forward range; every date is independently refitted with labels strictly
+before its target. The dashboard automatically splits long selections into
+31-day requests and combines the daily results. Direct API clients should do
+the same so each Vercel invocation stays within its execution window.
+
+```json
+{
+  "source": "live",
+  "model": "poisson_prize_90d",
+  "top_k": 3,
+  "target_date": "2026-10-01",
+  "target_end_date": "2026-10-31"
+}
+```
+
 Python is pinned to 3.12 in `.python-version`. The empty `installCommand` in
 `vercel.json` skips the static site's automatic Python dependency installation;
 the Python API builder still installs `requirements.txt`. The OpenMP build

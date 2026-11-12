@@ -41,6 +41,85 @@ class ApiPrizeSourceTests(unittest.TestCase):
         self.assertEqual(result["target_date"], "2026-04-16")
         self.assertEqual(len(result["forecasts"]["poisson_prize_90d"]), 3)
 
+    def test_prize_poisson_range_refits_each_historical_date_without_future_labels(self):
+        calls = []
+
+        class RecordingPredictor:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def fit(self, train):
+                self.train = train
+                return self
+
+            def predict_scores(self, inference):
+                calls.append((self.train.copy(), inference.copy()))
+                return pd.Series(np.arange(100, dtype=float), index=inference.index)
+
+        with (
+            patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source),
+            patch.object(api, "PrizeLGBMPredictor", RecordingPredictor),
+        ):
+            response = api.app.test_client().post("/api/forecast", json={
+                "source": "live",
+                "model": "poisson_prize_90d",
+                "top_k": 3,
+                "target_date": "2026-04-10",
+                "target_end_date": "2026-04-12",
+            })
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        result = response.get_json()
+        self.assertEqual(result["target_start_date"], "2026-04-10")
+        self.assertEqual(result["target_end_date"], "2026-04-12")
+        self.assertEqual(result["result_count"], 3)
+        self.assertEqual([item["target_date"] for item in result["results"]], [
+            "2026-04-10", "2026-04-11", "2026-04-12",
+        ])
+        self.assertEqual(len(calls), 3)
+        for target_text, (train, inference) in zip(
+            ["2026-04-10", "2026-04-11", "2026-04-12"], calls, strict=True,
+        ):
+            target = pd.Timestamp(target_text)
+            training_labels = train.index.get_level_values(0) + pd.Timedelta(days=1)
+            self.assertTrue((training_labels < target).all())
+            self.assertTrue((training_labels >= target - pd.Timedelta(days=90)).all())
+            self.assertEqual(inference.index.get_level_values(0).unique().tolist(), [
+                target - pd.Timedelta(days=1),
+            ])
+
+    def test_prize_poisson_accepts_one_historical_target(self):
+        with (
+            patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source),
+            patch.object(api, "PrizeLGBMPredictor") as predictor,
+        ):
+            fitted = predictor.return_value.fit.return_value
+            fitted.predict_scores.return_value = pd.Series(
+                np.arange(100, dtype=float),
+                index=pd.MultiIndex.from_product([
+                    [pd.Timestamp("2026-04-09")], [f"{number:02d}" for number in range(100)]
+                ]),
+            )
+            response = api.app.test_client().post("/api/forecast", json={
+                "source": "live",
+                "model": "poisson_prize_90d",
+                "target_date": "2026-04-10",
+            })
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(response.get_json()["target_date"], "2026-04-10")
+
+    def test_prize_poisson_rejects_range_beyond_next_unseen_date(self):
+        with patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source):
+            response = api.app.test_client().post("/api/forecast", json={
+                "source": "live",
+                "model": "poisson_prize_90d",
+                "target_date": "2026-04-16",
+                "target_end_date": "2026-04-17",
+            })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("latest forecastable date", response.get_json()["error"])
+
     def test_live_raw_feed_still_produces_frequency_matrices(self):
         with patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source):
             frequency, binary = api._load_matrices("live")
