@@ -1,0 +1,17 @@
+{
+  "source": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\raw\\xsmb_2026-11-05.csv",
+  "source_sha256": "4819b779c23d7969ba6c0e1a17b7a1249615dc35ced1f8ae45ea114ba5791922",
+  "evaluation_start": "2026-01-01",
+  "evaluation_end": "2026-11-04",
+  "training_policy": "All labeled history strictly before 2026-01-01",
+  "training_label_end": "2025-12-31",
+  "refit_policy": "Fit once before holdout; no refit during 2026",
+  "features_policy": "Causal features updated using completed previous draws",
+  "model": "src.count_models.CountLGBMPredictor defaults, fitted once before 2026",
+  "top_k": 3,
+  "stake_per_selection_vnd": 27000,
+  "gross_payout_per_occurrence_vnd": 99000,
+  "tie_policy": "Descending score, ascending number for ties",
+  "days": 303,
+  "excluded_days": 5
+}

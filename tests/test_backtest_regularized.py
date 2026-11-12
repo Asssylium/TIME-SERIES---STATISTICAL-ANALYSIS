@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from backtest_regularized import evaluation_dates, fit_day, validate_record, write_reports
+from scripts.backtests.backtest_regularized import evaluation_dates, fit_day, validate_record, write_reports
 from src.count_features import COUNT_TARGET, build_count_feature_dataset
 from src.data_loader import NUMBER_COLUMNS
 from src.regularized_models import RegularizedLGBMPredictor

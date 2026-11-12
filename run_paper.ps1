@@ -11,7 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 sys.path.insert(0, 'D:/xsmb-model-check/deps')
 sys.path.insert(0, os.getcwd())
-from paper_trade import main
+from scripts.operations.paper_trade import main
 raise SystemExit(main())
 '@
 $logDirectory = Join-Path $PSScriptRoot 'reports\paper_trial\logs'

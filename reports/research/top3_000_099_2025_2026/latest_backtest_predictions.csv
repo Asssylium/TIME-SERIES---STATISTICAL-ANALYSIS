@@ -1,0 +1,7 @@
+﻿model,scope,prediction_top3
+poisson,all_000_999,294 124 194
+poisson,restricted_000_099,014 074 024
+binary,all_000_999,114 294 774
+binary,restricted_000_099,054 084 094
+frequency_90d,all_000_999,077 188 200
+frequency_90d,restricted_000_099,077 040 053

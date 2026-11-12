@@ -1,0 +1,32 @@
+{
+  "evaluation_start": "2026-11-01",
+  "evaluation_end": "2026-11-05",
+  "paired_days": 5,
+  "models": {
+    "poisson_90d_daily": "90 calendar days of outcome labels strictly before target; refit before each target",
+    "poisson_all_history_daily": "all available outcome labels strictly before target; refit before each target"
+  },
+  "model_parameters": {
+    "objective": "poisson",
+    "n_estimators": 100,
+    "learning_rate": 0.03,
+    "num_leaves": 7,
+    "min_child_samples": 200,
+    "reg_lambda": 20.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "top_k": 3,
+  "stake_per_selection_vnd": 27000,
+  "gross_payout_per_occurrence_vnd": 99000,
+  "source_snapshot": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\processed\\xsmb_prizes_2026-11-06.csv",
+  "source_snapshot_sha256": "24b847a8b4f3db5acecbc9f93c8b6478b617460401b4000cf842f5dc7e46f9cc",
+  "source_feed_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb.csv",
+  "source_feed_latest_date_before_append": "2026-11-04",
+  "nov_5_results_url": "https://xskt.com.vn/xsmb/ngay-5-11-2026",
+  "nov_5_prize_count_validated": 27,
+  "training_label_cutoffs_checked_against_forecast_origin": true
+}

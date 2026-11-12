@@ -1,0 +1,34 @@
+{
+  "source": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\raw\\xsmb_2026-11-05.csv",
+  "source_sha256": "4819b779c23d7969ba6c0e1a17b7a1249615dc35ced1f8ae45ea114ba5791922",
+  "analysis_script": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\research_top3_short_horizon.py",
+  "analysis_script_sha256": "7f3c953e11e384b3d6dbdb009245f18f7a8b73df430487ba6930955c0037f71f",
+  "source_start": "2005-10-01",
+  "source_end": "2026-11-04",
+  "evaluation_start": "2010-09-30",
+  "evaluation_end": "2026-11-04",
+  "evaluation_days": 5774,
+  "target_results_per_day": 27,
+  "candidate_numbers": 100,
+  "top_k": 3,
+  "minimum_history_calendar_days": 1825,
+  "strategies": [
+    "frequency_90d",
+    "frequency_365d",
+    "frequency_5y",
+    "expanding",
+    "weekday_5y",
+    "weekday_shrink_3y"
+  ],
+  "weekday_prior_same_weekday_days": 156,
+  "random_expected_occurrences_per_day": 0.81,
+  "bootstrap_resamples": 2000,
+  "bootstrap_block_lengths": [
+    7,
+    90
+  ],
+  "tie_policy_primary": "Expected metrics average uniformly over candidates tied at Top-3 cutoff.",
+  "tie_policy_operational": "Stable descending score, ascending number for ties.",
+  "selection_bias": "Retrospective exploratory result; historical source and candidate strategies have been examined previously. Intervals are not adjusted for multiple comparisons.",
+  "production_default_changed": false
+}

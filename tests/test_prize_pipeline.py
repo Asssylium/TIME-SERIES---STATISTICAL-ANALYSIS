@@ -15,7 +15,7 @@ import pandas as pd
 from src.count_features import COUNT_TARGET
 from src.prize_features import PRIZE_COLUMNS, PRIZE_WIDTHS, build_prize_feature_dataset, normalize_prizes
 from src.prize_models import PrizeLGBMPredictor
-from train_prize_model import run
+from scripts.operations.train_prize_model import run
 
 
 class PrizePipelineTests(unittest.TestCase):

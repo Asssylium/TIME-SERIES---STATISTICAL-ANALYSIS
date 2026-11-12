@@ -43,44 +43,22 @@ The system combines:
 
 ```text
 .
-├── main.py                     # End-to-end training/evaluation pipeline
-├── research.py                # Research workflow and reporting
-├── paper_trade.py             # Simulated paper-trading entry point
-├── backtest_periods.py        # Backtest split utilities
-├── backtest_regularized.py    # Regularized-model backtest experiments
-├── diagnose_signal.py         # Signal diagnosis utilities
-├── train_prize_model.py      # Prize-model training script
-├── requirements.txt           # Python dependency list
-├── RESEARCH.md                # Research methodology and interpretation notes
-├── PAPER_TRADING.md           # Paper-trading rules and execution protocol
-├── src/
-│   ├── data_loader.py        # Data validation and matrix construction
-│   ├── features.py           # Feature engineering for daily draw data
-│   ├── models.py             # Baseline and LightGBM forecasting models
-│   ├── regularized_models.py # Experimental regularized model
-│   ├── evaluator.py          # Evaluation metrics and summaries
-│   ├── diagnostics.py        # Payout and diagnostic reporting
-│   └── ...
-├── tests/
-│   ├── test_main.py
-│   ├── test_features.py
-│   ├── test_models.py
-│   └── ...
-├── data/
-│   ├── raw/
-│   └── processed/
-├── reports/
-│   ├── README.md              # Curated report index
-│   ├── current/               # Current comparisons and recommendations
-│   ├── research/              # Selected long-lived research
-│   ├── audits/                # Reproducibility and integrity checks
-│   ├── paper_trial/           # Active paper-trading journal
-│   └── prize_model_2026-10-30/ # Retained model/source snapshot
-├── work/
-│   └── reports/               # Disposable generated runs (gitignored)
-└── README.md
+├── main.py                     # Stable CLI pipeline entry point
+├── app.py                      # Streamlit dashboard
+├── api/                        # Vercel serverless API
+├── scripts/
+│   ├── research/               # Research experiments
+│   ├── reports/                # Report generation
+│   ├── backtests/              # Backtests and model comparisons
+│   └── operations/             # Forecasting, training, paper trading
+├── src/                        # Reusable forecasting library
+├── tests/                      # Automated tests
+├── data/                       # Raw and processed datasets
+├── reports/                    # Curated and generated outputs
+├── requirements.txt
+├── RESEARCH.md
+└── PAPER_TRADING.md
 ```
-
 ## Core pipeline
 
 The main execution path is handled in `main.py`.
@@ -125,6 +103,56 @@ The project uses time-series validation instead of random cross-validation:
 This avoids leakage and reflects the constraints of real forecasting.
 
 ## Quick start (Windows PowerShell)
+
+### Web application
+
+The project now includes a local Streamlit dashboard that reuses the same
+validated `run_pipeline` entry point as the command-line workflow. It provides
+dataset health, trailing-frequency context, configurable forecasts, curated
+model comparison, daily benchmark history, and CSV export.
+
+```powershell
+Set-Location 'D:\TIME-SERIES & STATISTICAL ANALYSIS'
+uv run --with-requirements requirements.txt --with streamlit streamlit run app.py
+```
+
+Or use the convenience launcher:
+
+```powershell
+.\run_webapp.ps1 -Port 8501
+```
+
+The app opens at `http://localhost:8501`. Forecast runs use the selected local
+CSV and never mutate the curated reports tree. The UI is an analysis surface,
+not a betting or execution system.
+
+### Vercel deployment
+
+Vercel cannot run the Streamlit process itself, so the repository also includes
+a serverless Flask API and a small browser dashboard. The Vercel entry point is
+`api/index.py`; bundled CSV files under `data/` are available as selectable
+sources, while the live GitHub feed remains available for online deployments.
+
+Install the Vercel CLI, link the repository once, and start a local Vercel
+environment:
+
+```powershell
+npm install --global vercel
+vercel login
+vercel link
+vercel dev
+```
+
+Open `http://localhost:3000`. To publish a preview or production deployment:
+
+```powershell
+vercel
+vercel --prod
+```
+
+The deployment uses `vercel.json`, keeps the existing Streamlit launcher for
+local analysis, and exposes `/api/health`, `/api/sources`, and
+`POST /api/forecast` for the browser UI or other clients.
 
 Open PowerShell in the repository folder:
 
@@ -284,10 +312,10 @@ Enable-ScheduledTask -TaskName 'XSMB-Paper-90Day-Trial'
 The local `run_paper.ps1` wrapper uses machine-specific Python/dependency paths. On another machine, configure those paths first, or use the Python entry point directly:
 
 ```powershell
-py paper_trade.py init
-py paper_trade.py run
-py paper_trade.py status
-py paper_trade.py verify
+py -m scripts.operations.paper_trade init
+py -m scripts.operations.paper_trade run
+py -m scripts.operations.paper_trade status
+py -m scripts.operations.paper_trade verify
 ```
 
 ### Research and historical backtests
@@ -299,31 +327,31 @@ These are on-demand, potentially lengthy experiments, not daily commands. Choose
 py research.py --output work/reports/research_run_01
 
 # Period-based backtest over a chosen historical date range
-py backtest_periods.py --start 2026-01-01 --end 2026-10-29 --period-days 90 --workers 2 --output work/reports/backtest_run_01
+py -m scripts.backtests.backtest_periods --start 2026-01-01 --end 2026-10-29 --period-days 90 --workers 2 --output work/reports/backtest_run_01
 
 # Daily-refit regularized-model backtest
 py backtest_regularized.py --year 2025 --end 2025-12-31 --top-k 10 --workers 2 --output work/reports/regularized_run_01
 
 # Train and compare ordered-prize models; choose the forecast date explicitly
-py train_prize_model.py --forecast-date 2026-11-02 --top-k 5 --output work/reports/prize_model_run_01
+py -m scripts.operations.train_prize_model --forecast-date 2026-11-02 --top-k 5 --output work/reports/prize_model_run_01
 
 # Run signal diagnostics against a local CSV source
-py diagnose_signal.py --source data/processed/xsmb_prizes_2026-10-30.csv --output work/reports/signal_diagnostics_run_01 --permutations 499
+py -m scripts.operations.diagnose_signal --source data/processed/xsmb_prizes_2026-10-30.csv --output work/reports/signal_diagnostics_run_01 --permutations 499
 
 # Test pairwise co-occurrence against a fair independent-draw null
 py analyze_pair_dependence.py --source data/processed/xsmb_prizes_2026-10-30.csv --output work/reports/pair_dependence_research_run_01
 
 # Research Top-3 predictions over three-digit endings (000-999)
-py research_top3_3digit.py --source reports/prize_model_2026-10-30/source_snapshot.csv --output work/reports/top3_3digit_research_run_01
+py -m scripts.research.research_top3_3digit --source reports/prize_model_2026-10-30/source_snapshot.csv --output work/reports/top3_3digit_research_run_01
 
 # Restrict evaluation to the May-July 2026 draw dates
-py research_top3_3digit.py --source reports/prize_model_2026-10-30/source_snapshot.csv --start-date 2026-05-01 --end-date 2026-07-31 --output work/reports/top3_3digit_research_2026_may_july
+py -m scripts.research.research_top3_3digit --source reports/prize_model_2026-10-30/source_snapshot.csv --start-date 2026-05-01 --end-date 2026-07-31 --output work/reports/top3_3digit_research_2026_may_july
 
 # Evaluate August-October 2026 and apply the 23-to-900 per-occurrence payout
-py research_top3_3digit.py --source reports\prize_model_2026-10-30\source_snapshot.csv --start-date 2026-08-01 --end-date 2026-10-31 --output work\reports\top3_3digit_research_2026_aug_oct
+py -m scripts.research.research_top3_3digit --source reports\prize_model_2026-10-30\source_snapshot.csv --start-date 2026-08-01 --end-date 2026-10-31 --output work\reports\top3_3digit_research_2026_aug_oct
 
 # Historical two-digit-target research (not the three-digit experiment)
-py research_top3_excluding_prize4.py --source reports/prize_model_2026-10-30/source_snapshot.csv --output work/reports/top3_excluding_prize4_research_run_01
+py -m scripts.research.research_top3_excluding_prize4 --source reports/prize_model_2026-10-30/source_snapshot.csv --output work/reports/top3_excluding_prize4_research_run_01
 ```
 
 `analyze_pair_dependence.py` tests all 4,950 number pairs on a fixed 2005–2022 discovery and 2023+ replication split. It uses exact binomial tests with Holm correction separately in each period. Its findings are retrospective diagnostics, not proof of a forecast edge; the command does not change production defaults.

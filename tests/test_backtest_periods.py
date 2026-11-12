@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from backtest_periods import _verify_prior_history, calendar_periods, run
+from scripts.backtests.backtest_periods import _verify_prior_history, calendar_periods, run
 from src.data_loader import NUMBER_COLUMNS
 
 

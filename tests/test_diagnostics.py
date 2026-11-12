@@ -9,7 +9,7 @@ from src.diagnostics import (
     block_bootstrap_mean_interval, evaluate_payouts, probability_diagnostics, rank_top_k,
 )
 from src.features import build_feature_dataset
-from research import apply_sigmoid, normalized_features, simple_forecasts
+from scripts.research.research import apply_sigmoid, normalized_features, simple_forecasts
 
 
 class DiagnosticsTests(unittest.TestCase):

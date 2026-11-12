@@ -1,0 +1,11 @@
+﻿date,model,prediction,hit,occurrences,hit_numbers,training_labels,training_label_start,training_label_end
+2026-11-01,poisson_90d_daily,18 33 38,False,0,,9000,2026-08-03,2026-10-31
+2026-11-01,poisson_all_history_daily,44 72 59,False,0,,757500,2005-10-02,2026-10-31
+2026-11-02,poisson_90d_daily,18 22 32,True,1,22x1,9000,2026-08-04,2026-11-01
+2026-11-02,poisson_all_history_daily,44 59 72,True,1,72x1,757600,2005-10-02,2026-11-01
+2026-11-03,poisson_90d_daily,50 17 38,True,1,50x1,9000,2026-08-05,2026-11-02
+2026-11-03,poisson_all_history_daily,59 72 44,False,0,,757700,2005-10-02,2026-11-02
+2026-11-04,poisson_90d_daily,17 50 32,True,3,17x3,9000,2026-08-06,2026-11-03
+2026-11-04,poisson_all_history_daily,44 59 79,True,2,59x1;79x1,757800,2005-10-02,2026-11-03
+2026-11-05,poisson_90d_daily,33 93 21,True,2,33x1;93x1,9000,2026-08-07,2026-11-04
+2026-11-05,poisson_all_history_daily,59 72 44,True,1,44x1,757900,2005-10-02,2026-11-04

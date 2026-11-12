@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binomtest
 
-from research_top3_short_horizon import (
+from scripts.research.research_top3_short_horizon import (
     DEFAULT_OUTPUT as FREQUENCY_OUTPUT,
     GROSS_PAYOUT_PER_OCCURRENCE,
     STAKE_PER_NUMBER,

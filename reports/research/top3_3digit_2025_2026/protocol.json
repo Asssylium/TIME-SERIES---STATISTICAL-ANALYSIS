@@ -1,0 +1,55 @@
+{
+  "source": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\raw\\xsmb_2026-11-05.csv",
+  "source_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb.csv",
+  "source_sha256": "4819b779c23d7969ba6c0e1a17b7a1249615dc35ced1f8ae45ea114ba5791922",
+  "analysis_code_sha256": "87a1d03a3cc5801b8efe6526a2a217d283ea65520d17855d29cd4f8f29ad4b14",
+  "source_start": "2005-10-01",
+  "source_end": "2026-11-04",
+  "evaluation_start": "2025-01-01",
+  "evaluation_end": "2026-11-04",
+  "target_digit_count": 3,
+  "candidate_numbers": 1000,
+  "target_draw_count_per_day": 23,
+  "supersedes_report": "reports/top3_excluding_prize4_research_2026-11-03/report.md (incorrect two-digit interpretation)",
+  "excluded_prize_columns": [
+    "prize7_1",
+    "prize7_2",
+    "prize7_3",
+    "prize7_4"
+  ],
+  "leading_zero_padding": true,
+  "top_k": 3,
+  "history_days": 1095,
+  "refit_policy": "before each calendar quarter; training labels strictly before quarter start",
+  "strategies": [
+    "poisson_3digit_23",
+    "binary_3digit_23",
+    "frequency_90d_3digit_23"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "learning_rate": 0.03,
+    "num_leaves": 7,
+    "min_child_samples": 200,
+    "reg_lambda": 20.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "verbosity": -1,
+    "deterministic": true,
+    "force_col_wise": true
+  },
+  "bootstrap_block_length_observed_draws": 7,
+  "target_hit_reference_random_independent_uniform": 0.06677010784864967,
+  "payout_rule": {
+    "stake_per_number_per_day": 23,
+    "gross_payout_per_matching_occurrence": 900,
+    "daily_top3_stake": 69,
+    "net_profit_formula": "gross payout per occurrence * selected occurrence count - daily Top-3 stake",
+    "repeats_paid_per_occurrence": true,
+    "currency_or_unit": "same unspecified unit as user's 23-to-900 payout quote"
+  },
+  "stress_period_is_untouched": false,
+  "production_default_changed": false,
+  "latest_forecast_date": "2026-11-04",
+  "conclusion_vi": "K\u1ebft qu\u1ea3 to\u00e0n k\u1ef3 (663 ng\u00e0y): poisson: 45/663 ng\u00e0y hit, 47 l\u01b0\u1ee3t tr\u00fang, l\u00e3i r\u00f2ng -3,447 \u0111\u01a1n v\u1ecb; binary: 43/663 ng\u00e0y hit, 47 l\u01b0\u1ee3t tr\u00fang, l\u00e3i r\u00f2ng -3,447 \u0111\u01a1n v\u1ecb; frequency_90d: 44/663 ng\u00e0y hit, 46 l\u01b0\u1ee3t tr\u00fang, l\u00e3i r\u00f2ng -4,347 \u0111\u01a1n v\u1ecb. Theo n\u0103m: 2025: poisson 25/360 hit, -1,440; binary 23/360 hit, -1,440; frequency_90d 27/360 hit, +1,260 \u0111\u01a1n v\u1ecb | 2026: poisson 20/303 hit, -2,007; binary 20/303 hit, -2,007; frequency_90d 17/303 hit, -5,607 \u0111\u01a1n v\u1ecb. \u0110\u00e2y l\u00e0 P&L h\u1ed3i c\u1ee9u theo m\u1ee9c c\u01b0\u1ee3c/tr\u1ea3 \u0111\u00e3 n\u00eau; so s\u00e1nh l\u00e3i/l\u1ed7 kh\u00f4ng ch\u1ee9ng minh m\u00f4 h\u00ecnh c\u00f3 l\u1ee3i th\u1ebf \u1ed5n \u0111\u1ecbnh."
+}

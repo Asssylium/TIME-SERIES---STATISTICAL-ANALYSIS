@@ -1,0 +1,30 @@
+{
+  "source": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\reports\\backtest_90d_2026_to_2026-10-29_parallel\\source_snapshot.csv",
+  "source_sha256": "d5d6cd5a350f44093dcf6d7df78e6b806cbc34c35a07ec7aea1737a8d274593d",
+  "analysis_code_sha256": "883e8eee2fe80245ca32036a9507eda6677cf92acdbeb432effdf458382d925d",
+  "data_loader_sha256": "9b5716b86ce7239fe419c9e386287137fd9c60ef550f30952004665cb2c2f79e",
+  "null_model": "27 independent uniform draws with replacement from 00..99 per observed date",
+  "pairwise_null_probability": 0.05488209778544517,
+  "pair_test_count_per_period": 4950,
+  "test": "two-sided exact binomial",
+  "multiplicity_correction": "Holm family-wise error correction, separately over all 4950 pairs in each period",
+  "alpha": 0.05,
+  "discovery": {
+    "start": "2005-10-01",
+    "end": "2022-12-31",
+    "observed_days": 6216,
+    "missing_calendar_dates": 85
+  },
+  "replication": {
+    "start": "2023-01-01",
+    "end": "2026-10-29",
+    "observed_days": 1382,
+    "missing_calendar_dates": 16
+  },
+  "discovery_significant_pairs": 0,
+  "replication_significant_pairs": 0,
+  "replicated_same_direction_pairs": 0,
+  "replicated_pairs": [],
+  "production_default_changed": false,
+  "recommendation": "Không có cặp nào vượt hiệu chỉnh nhiều phép thử ở cả hai giai đoạn và cùng chiều hiệu ứng. Không thêm luật dự đoán theo cặp; giữ nguyên mặc định production hiện tại."
+}

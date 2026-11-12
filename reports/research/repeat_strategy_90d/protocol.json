@@ -1,0 +1,19 @@
+{
+  "selection_period": "selection_2025",
+  "stress_period": "known_stress_2026",
+  "selection_metric": "Top-3 hit rate",
+  "selection_tie_break": "fixed strategy order; not profit",
+  "top_k": 3,
+  "history_days": 90,
+  "strategies": [
+    "poisson",
+    "binary",
+    "frequency_90d",
+    "poisson_no_repeat_1d",
+    "poisson_no_repeat_3d"
+  ],
+  "stake_per_selection_vnd": 27000,
+  "gross_per_occurrence_vnd": 99000,
+  "stress_period_is_untouched": false,
+  "production_default_changed": false
+}

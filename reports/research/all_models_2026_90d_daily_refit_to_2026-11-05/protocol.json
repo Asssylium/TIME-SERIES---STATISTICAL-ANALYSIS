@@ -1,0 +1,108 @@
+{
+  "start": "2026-01-01",
+  "end": "2026-11-05",
+  "days_in_source": 304,
+  "history_days": 90,
+  "history_policy": "Daily rolling calendar-day training labels strictly before target.",
+  "top_k": 3,
+  "models": [
+    "regularized",
+    "poisson",
+    "binary",
+    "lightgbm"
+  ],
+  "payout": {
+    "stake_per_selection_vnd": 27000,
+    "gross_per_occurrence_vnd": 99000,
+    "separate_stake_refund": false
+  },
+  "payout_mode": "per_occurrence",
+  "source_url": "local-snapshot:D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\processed\\xsmb_prizes_2026-11-06.csv",
+  "source_sha256": "f4afe1a5bda97058cf091ffe244bfa959486627519d91b8a4bc75bd81f324c4e",
+  "model_params": {
+    "regularized": {
+      "objective": "binary",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "poisson": {
+      "objective": "poisson",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "binary": {
+      "objective": "binary",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "lightgbm": {
+      "objective": "binary",
+      "n_estimators": 200,
+      "learning_rate": 0.05,
+      "num_leaves": 15,
+      "min_child_samples": 50,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    }
+  },
+  "excluded_dates": [
+    {
+      "date": "2026-02-16",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-17",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-18",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-19",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-20",
+      "reason": "preceding calendar day missing"
+    }
+  ],
+  "notes": "Retrospective comparison; no model/parameter selection on evaluation outcomes.",
+  "source_snapshot_file": "D:\\TIME-SERIES & STATISTICAL ANALYSIS\\data\\processed\\xsmb_prizes_2026-11-06.csv",
+  "source_snapshot_sha256_file": "24b847a8b4f3db5acecbc9f93c8b6478b617460401b4000cf842f5dc7e46f9cc",
+  "source_feed_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb.csv",
+  "source_feed_latest_date_at_download": "2026-11-04",
+  "2026-11-05_result_page": "https://xskt.com.vn/xsmb/ngay-5-11-2026",
+  "2026-11-05_result_count_validated": 27,
+  "cached_daily_score_dates_reused": 297,
+  "cached_scores_validation": "All four Top-3 rankings matched the archived daily CSV across all 297 dates; hit and occurrence counts revalidated against current snapshot.",
+  "new_daily_fits": "2026-10-30 through 2026-11-05; all four models refit daily with the same 90-day history policy."
+}

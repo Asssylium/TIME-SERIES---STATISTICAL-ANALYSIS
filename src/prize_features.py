@@ -31,8 +31,26 @@ def normalize_prizes(raw: pd.DataFrame) -> pd.DataFrame:
     """
     if not isinstance(raw, pd.DataFrame) or raw.empty or not raw.columns.is_unique:
         raise DataValidationError("Expected a nonempty raw prize table with unique columns.")
-    if set(raw.columns) != {"date", *PRIZE_COLUMNS}:
-        raise DataValidationError("Raw prize table must contain date and exactly the 27 named prize positions.")
+    # CSV exports occasionally include a UTF-8 BOM or whitespace in the header.
+    # Normalize those harmless transport differences before enforcing the schema.
+    raw = raw.copy()
+    raw.columns = [str(column).lstrip("\ufeff").strip() for column in raw.columns]
+    if not raw.columns.is_unique:
+        raise DataValidationError("Raw prize table contains duplicate column names after header cleanup.")
+    expected_columns = {"date", *PRIZE_COLUMNS}
+    actual_columns = set(raw.columns)
+    if actual_columns != expected_columns:
+        missing = sorted(expected_columns - actual_columns)
+        extra = sorted(actual_columns - expected_columns)
+        details = []
+        if missing:
+            details.append(f"missing: {', '.join(missing)}")
+        if extra:
+            details.append(f"unexpected: {', '.join(extra)}")
+        suffix = f" ({'; '.join(details)})" if details else ""
+        raise DataValidationError(
+            "Raw prize table must contain date and exactly the 27 named prize positions" + suffix + "."
+        )
     normalized = raw.loc[:, ["date", *PRIZE_COLUMNS]].copy()
     for column, width in PRIZE_WIDTHS.items():
         text = normalized[column].astype("string").str.strip()

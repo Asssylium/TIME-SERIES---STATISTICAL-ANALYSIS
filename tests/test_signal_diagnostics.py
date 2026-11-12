@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from diagnose_signal import screen
+from scripts.operations.diagnose_signal import screen
 from src.data_loader import NUMBER_COLUMNS
 
 
