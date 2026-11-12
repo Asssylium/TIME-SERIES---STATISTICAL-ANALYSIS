@@ -7,7 +7,7 @@ operations needed by the browser dashboard.
 
 from __future__ import annotations
 
-from datetime import date as calendar_date
+from datetime import date as calendar_date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 import sys
@@ -76,15 +76,31 @@ def _source_url(source_id: str) -> str:
 
 
 @lru_cache(maxsize=8)
-def _load_matrices(source_id: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _load_matrices(
+    source_id: str, source_revision: str | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load source matrices; a revision key explicitly bypasses stale cache entries."""
     loader = XSMBDataLoader(url=_source_url(source_id), timeout=60)
     return loader.preprocess_and_build_matrices(loader.load_data())
 
 
 @lru_cache(maxsize=4)
-def _load_raw(source_id: str) -> pd.DataFrame:
+def _load_raw(source_id: str, source_revision: str | None = None) -> pd.DataFrame:
+    """Load ordered prizes; a revision key explicitly bypasses stale cache entries."""
     loader = XSMBDataLoader(url=_source_url(source_id), timeout=60)
     return loader.load_data()
+
+
+def _source_item(source_id: str, source_revision: str | None = None) -> dict[str, Any]:
+    """Return validated source metadata using the requested cache revision."""
+    source = _source_catalog()[source_id]
+    item: dict[str, Any] = {key: source[key] for key in ("id", "label", "kind")}
+    frequency, _ = _load_matrices(source_id, source_revision)
+    item["first_date"] = frequency.index[0].strftime("%Y-%m-%d")
+    item["last_date"] = frequency.index[-1].strftime("%Y-%m-%d")
+    item["next_date"] = (frequency.index[-1] + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    item["days"] = int(len(frequency))
+    return item
 
 
 def _json_safe(value: Any) -> Any:
@@ -194,10 +210,11 @@ def _prize_poisson_90d_result(
 
 
 def _prize_poisson_90d_payload(
-    source_id: str, top_k: int, target_date: str | None, target_end_date: str | None = None,
+    source_id: str, top_k: int, target_date: str | None,
+    target_end_date: str | None = None, source_revision: str | None = None,
 ) -> dict[str, Any]:
     """Forecast one date or an inclusive range with independent walk-forward refits."""
-    raw = _load_raw(source_id)
+    raw = _load_raw(source_id, source_revision)
     prizes = normalize_prizes(raw)
     latest = prizes.index[-1]
     start = pd.Timestamp(target_date) if target_date is not None else latest + pd.Timedelta(days=1)
@@ -249,17 +266,38 @@ def health() -> Any:
 def sources() -> Any:
     items = []
     for source in _source_catalog().values():
-        item = {key: source[key] for key in ("id", "label", "kind")}
         try:
-            frequency, _ = _load_matrices(source["id"])
-            item["first_date"] = frequency.index[0].strftime("%Y-%m-%d")
-            item["last_date"] = frequency.index[-1].strftime("%Y-%m-%d")
-            item["next_date"] = (frequency.index[-1] + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-            item["days"] = int(len(frequency))
+            item = _source_item(source["id"])
         except Exception as exc:  # source health should not hide other sources
+            item = {key: source[key] for key in ("id", "label", "kind")}
             item["error"] = str(exc)
         items.append(item)
     return jsonify({"sources": items})
+
+
+@app.post("/api/sources/refresh")
+def refresh_source() -> Any:
+    """Pull, validate, and expose the latest GitHub feed revision."""
+    try:
+        previous = _source_item("live")
+        revision = datetime.now(timezone.utc).isoformat()
+        current = _source_item("live", revision)
+        return jsonify({
+            "source": current,
+            "source_revision": revision,
+            "refresh": {
+                "previous_last_date": previous["last_date"],
+                "current_last_date": current["last_date"],
+                "added_days": max(0, int(current["days"]) - int(previous["days"])),
+                "changed": (
+                    current["last_date"] != previous["last_date"]
+                    or current["days"] != previous["days"]
+                ),
+            },
+        })
+    except Exception:
+        app.logger.exception("GitHub source refresh failed")
+        return jsonify({"error": "Could not refresh and validate the GitHub data feed."}), 502
 
 
 @app.post("/api/forecast")
@@ -280,6 +318,11 @@ def forecast() -> Any:
         return jsonify({"error": "test_days must be between 30 and 366."}), 400
     target_date = body.get("target_date") or None
     target_end_date = body.get("target_end_date") or None
+    source_revision = body.get("source_revision") or None
+    if source_revision is not None and (
+        not isinstance(source_revision, str) or len(source_revision) > 100
+    ):
+        return jsonify({"error": "source_revision must be a short string."}), 400
     for field, value in (("target_date", target_date), ("target_end_date", target_end_date)):
         if value is None:
             continue
@@ -295,7 +338,9 @@ def forecast() -> Any:
         return jsonify({"error": "Date ranges are currently supported only by poisson_prize_90d."}), 400
     try:
         if model == "poisson_prize_90d":
-            return jsonify(_prize_poisson_90d_payload(source_id, top_k, target_date, target_end_date))
+            return jsonify(_prize_poisson_90d_payload(
+                source_id, top_k, target_date, target_end_date, source_revision,
+            ))
         result = run_pipeline(
             url=_source_url(source_id),
             model=model,
@@ -317,7 +362,12 @@ def forecast() -> Any:
 
 @app.get("/api")
 def api_index() -> Any:
-    return jsonify({"service": "xsmb-forecast-api", "health": "/api/health", "sources": "/api/sources"})
+    return jsonify({
+        "service": "xsmb-forecast-api",
+        "health": "/api/health",
+        "sources": "/api/sources",
+        "refresh_source": "/api/sources/refresh",
+    })
 
 
 if __name__ == "__main__":

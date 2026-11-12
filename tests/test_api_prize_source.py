@@ -57,6 +57,23 @@ class ApiPrizeSourceTests(unittest.TestCase):
             "days": 105,
         }])
 
+    def test_source_refresh_pulls_and_validates_a_new_revision(self):
+        with patch.object(
+            XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source,
+        ) as load:
+            response = api.app.test_client().post("/api/sources/refresh")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        payload = response.get_json()
+        self.assertEqual(load.call_count, 2)
+        self.assertEqual(payload["source"]["last_date"], "2026-04-15")
+        self.assertTrue(payload["source_revision"])
+        self.assertEqual(payload["refresh"], {
+            "previous_last_date": "2026-04-15",
+            "current_last_date": "2026-04-15",
+            "added_days": 0,
+            "changed": False,
+        })
+
     def test_prize_poisson_range_refits_each_historical_date_without_future_labels(self):
         calls = []
         constructor_calls = []

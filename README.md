@@ -142,6 +142,12 @@ vercel --prod
 The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
 `POST /api/forecast` for the browser UI or other clients.
 
+The dashboard's **Refresh GitHub data** action calls `POST
+/api/sources/refresh`. It pulls and validates a new source revision, updates all
+date limits, and carries the returned `source_revision` into later Prize
+Poisson requests so a warm serverless instance cannot reuse its older cached
+feed.
+
 Every settled forecast response includes an `analytics` object using schema
 version `1.0`. Its `models[].series[]` rows use stable names for `date`, `hits`,
 `paid_occurrences`, `stake`, `receipts`, `profit`, `roi`, `cumulative_profit`,
