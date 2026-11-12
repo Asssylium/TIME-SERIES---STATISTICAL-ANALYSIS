@@ -35,6 +35,8 @@ from src.prize_models import PrizeLGBMPredictor  # noqa: E402
 ALLOWED_MODELS = ("baseline", "lightgbm", "regularized", "poisson", "poisson_prize_90d", "both", "all")
 SOURCE_DIRS = (ROOT / "data" / "processed", ROOT / "data" / "raw")
 MAX_PRIZE_RANGE_DAYS = 31
+PRIZE_POISSON_HISTORY_DAYS = 90
+PRIZE_POISSON_N_ESTIMATORS = 100
 
 app = Flask(__name__)
 
@@ -134,7 +136,7 @@ def _prize_poisson_90d_result(
     origin = target - pd.Timedelta(days=1)
     training_mask = (
         data[COUNT_TARGET].notna().to_numpy()
-        & (labels >= target - pd.Timedelta(days=90))
+        & (labels >= target - pd.Timedelta(days=PRIZE_POISSON_HISTORY_DAYS))
         & (labels < target)
     )
     train = data.loc[training_mask]
@@ -146,7 +148,12 @@ def _prize_poisson_90d_result(
         raise ValueError(
             f"The completed draw for {origin:%Y-%m-%d} is required to forecast {target:%Y-%m-%d}."
         )
-    model = PrizeLGBMPredictor("poisson", history_days=90, n_jobs=1, n_estimators=80).fit(train)
+    model = PrizeLGBMPredictor(
+        "poisson",
+        history_days=PRIZE_POISSON_HISTORY_DAYS,
+        n_jobs=1,
+        n_estimators=PRIZE_POISSON_N_ESTIMATORS,
+    ).fit(train)
     scores = model.predict_scores(inference).droplevel(0)
     ranked = scores.sort_values(ascending=False, kind="stable").head(top_k)
     return {
@@ -192,7 +199,11 @@ def _prize_poisson_90d_payload(
         "source": source_id,
         "model": "poisson_prize_90d",
         "top_k": top_k,
-        "test_days": 90,
+        "test_days": PRIZE_POISSON_HISTORY_DAYS,
+        "model_parameters": {
+            "history_days": PRIZE_POISSON_HISTORY_DAYS,
+            "n_estimators": PRIZE_POISSON_N_ESTIMATORS,
+        },
     }
     if target_end_date is None:
         return _json_safe({**common, **results[0]})

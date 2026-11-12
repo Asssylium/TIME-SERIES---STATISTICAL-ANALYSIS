@@ -43,10 +43,11 @@ class ApiPrizeSourceTests(unittest.TestCase):
 
     def test_prize_poisson_range_refits_each_historical_date_without_future_labels(self):
         calls = []
+        constructor_calls = []
 
         class RecordingPredictor:
             def __init__(self, *args, **kwargs):
-                pass
+                constructor_calls.append((args, kwargs))
 
             def fit(self, train):
                 self.train = train
@@ -77,6 +78,18 @@ class ApiPrizeSourceTests(unittest.TestCase):
             "2026-04-10", "2026-04-11", "2026-04-12",
         ])
         self.assertEqual(len(calls), 3)
+        self.assertEqual(len(constructor_calls), 3)
+        for args, kwargs in constructor_calls:
+            self.assertEqual(args, ("poisson",))
+            self.assertEqual(kwargs, {
+                "history_days": 90,
+                "n_jobs": 1,
+                "n_estimators": 100,
+            })
+        self.assertEqual(result["model_parameters"], {
+            "history_days": 90,
+            "n_estimators": 100,
+        })
         for target_text, (train, inference) in zip(
             ["2026-04-10", "2026-04-11", "2026-04-12"], calls, strict=True,
         ):
