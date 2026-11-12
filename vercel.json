@@ -1,25 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" },
-    { "src": "public/**", "use": "@vercel/static" }
-  ],
+  "framework": null,
+  "outputDirectory": "public",
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "includeFiles": ["data/**/*.csv", "data/**/*.json"],
-      "excludeFiles": [
-        "tests/**",
-        "reports/**",
-        "work/**",
-        "scripts/**",
-        "public/**"
-      ]
+      "includeFiles": "{data/**/*.csv,data/**/*.json}",
+      "excludeFiles": "{tests/**,reports/**,work/**,scripts/**,.venv/**}"
     }
   },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.py" },
-    { "src": "/(.*)", "dest": "/public/index.html" }
+  "rewrites": [
+    { "source": "/api", "destination": "/api/index" },
+    { "source": "/api/:path*", "destination": "/api/index" }
   ]
 }
