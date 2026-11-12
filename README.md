@@ -118,8 +118,9 @@ Open `http://localhost:8000`. Press Ctrl+C in the terminal to stop the server.
 ### Vercel deployment
 
 The project uses a serverless Flask API and a browser dashboard. The Vercel entry point is
-`api/index.py`; bundled CSV files under `data/` are available as selectable
-sources, while the live GitHub feed remains available for online deployments.
+`api/index.py`. The API and dashboard use the validated live GitHub prize feed
+as their only data source; local CSV snapshots remain research fixtures and are
+not bundled into the deployment.
 
 Install the Vercel CLI, link the repository once, and start a local Vercel
 environment:
@@ -140,6 +141,13 @@ vercel --prod
 
 The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
 `POST /api/forecast` for the browser UI or other clients.
+
+Every settled forecast response includes an `analytics` object using schema
+version `1.0`. Its `models[].series[]` rows use stable names for `date`, `hits`,
+`paid_occurrences`, `stake`, `receipts`, `profit`, `roi`, `cumulative_profit`,
+`cumulative_roi`, and `drawdown`. Rates are decimal ratios and currency values
+are VND. The Chart analysis page can run selected models over 30 days, 90 days,
+12 months, or a custom 30–366 day range and can export these rows as CSV.
 
 `poisson_prize_90d` accepts a historical `target_date` as long as the previous
 calendar day's completed draw exists. Add `target_end_date` to run an inclusive

@@ -26,14 +26,16 @@ from src.native_runtime import load_bundled_openmp  # noqa: E402
 load_bundled_openmp()
 
 from main import run_pipeline  # noqa: E402
+from src.analytics import build_analytics_payload  # noqa: E402
 from src.count_features import COUNT_TARGET  # noqa: E402
 from src.data_loader import XSMBDataLoader  # noqa: E402
+from src.diagnostics import evaluate_payouts  # noqa: E402
+from src.evaluator import evaluate_test_set  # noqa: E402
 from src.prize_features import RAW_PRIZE_URL, build_prize_feature_dataset, normalize_prizes  # noqa: E402
 from src.prize_models import PrizeLGBMPredictor  # noqa: E402
 
 
 ALLOWED_MODELS = ("baseline", "lightgbm", "regularized", "poisson", "poisson_prize_90d", "both", "all")
-SOURCE_DIRS = (ROOT / "data" / "processed", ROOT / "data" / "raw")
 MAX_PRIZE_RANGE_DAYS = 31
 PRIZE_POISSON_HISTORY_DAYS = 90
 PRIZE_POISSON_N_ESTIMATORS = 100
@@ -47,8 +49,14 @@ def home() -> Any:
     return send_from_directory(ROOT / "public", "index.html")
 
 
+@app.get("/assets/<path:filename>")
+def public_asset(filename: str) -> Any:
+    """Serve dashboard assets during local Flask development."""
+    return send_from_directory(ROOT / "public" / "assets", filename)
+
+
 def _source_catalog() -> dict[str, dict[str, str]]:
-    sources = {
+    return {
         "live": {
             "id": "live",
             "label": "Live GitHub data feed",
@@ -58,31 +66,13 @@ def _source_catalog() -> dict[str, dict[str, str]]:
             "location": RAW_PRIZE_URL,
         }
     }
-    for folder in SOURCE_DIRS:
-        if not folder.exists():
-            continue
-        for path in sorted(folder.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True):
-            relative = path.relative_to(ROOT).as_posix()
-            source_id = f"bundled:{relative}"
-            sources[source_id] = {
-                "id": source_id,
-                "label": relative,
-                "kind": "bundled",
-                "location": relative,
-            }
-    return sources
 
 
 def _source_url(source_id: str) -> str:
     source = _source_catalog().get(source_id)
     if source is None:
-        raise ValueError("Unknown data source.")
-    if source["kind"] == "remote":
-        return source["location"]
-    path = (ROOT / source["location"]).resolve()
-    if ROOT not in path.parents or path.suffix.lower() != ".csv" or not path.is_file():
-        raise ValueError("The selected bundled source is not available.")
-    return path.as_uri()
+        raise ValueError("Only the live GitHub data feed is supported.")
+    return source["location"]
 
 
 @lru_cache(maxsize=8)
@@ -123,7 +113,39 @@ def _forecast_payload(result: Any, source_id: str, model: str, top_k: int, test_
             },
             "evaluations": {name: dict(item.summary) for name, item in result.evaluations.items()},
             "payouts": {name: dict(item.summary) for name, item in result.payouts.items()},
+            "analytics": build_analytics_payload(result.evaluations, result.payouts),
         }
+    )
+
+
+def _prize_range_analytics(
+    prizes: pd.DataFrame, results: list[dict[str, Any]], top_k: int,
+) -> dict[str, object]:
+    """Score settled Prize Poisson forecasts under the shared chart contract."""
+    settled = [item for item in results if pd.Timestamp(item["target_date"]) in prizes.index]
+    if not settled:
+        return build_analytics_payload({}, {})
+
+    frequency, _ = XSMBDataLoader().preprocess_and_build_matrices(prizes.reset_index())
+    targets = pd.DatetimeIndex([item["target_date"] for item in settled])
+    predictions = [
+        [entry["number"] for entry in item["forecasts"]["poisson_prize_90d"]]
+        for item in settled
+    ]
+    truth = [
+        np.repeat(np.arange(100), frequency.loc[target].to_numpy(dtype=np.int64))
+        for target in targets
+    ]
+    evaluation = evaluate_test_set(truth, predictions, k=top_k, dates=targets)
+    selected = np.zeros((len(targets), 100), dtype=bool)
+    for row, numbers in enumerate(predictions):
+        selected[row, [int(number) for number in numbers]] = True
+    payout = evaluate_payouts(
+        frequency.loc[targets].to_numpy(dtype=np.int64), selected,
+        payout_mode="per_occurrence", stake=27_000, gross_payout=99_000,
+    )
+    return build_analytics_payload(
+        {"poisson_prize_90d": evaluation}, {"poisson_prize_90d": payout},
     )
 
 
@@ -195,6 +217,7 @@ def _prize_poisson_90d_payload(
     feature_start = start - pd.Timedelta(days=91)
     data = build_prize_feature_dataset(raw, include_unlabeled=True, start=feature_start)
     results = [_prize_poisson_90d_result(data, target, top_k) for target in targets]
+    analytics = _prize_range_analytics(prizes, results, top_k)
     common = {
         "source": source_id,
         "model": "poisson_prize_90d",
@@ -204,6 +227,7 @@ def _prize_poisson_90d_payload(
             "history_days": PRIZE_POISSON_HISTORY_DAYS,
             "n_estimators": PRIZE_POISSON_N_ESTIMATORS,
         },
+        "analytics": analytics,
     }
     if target_end_date is None:
         return _json_safe({**common, **results[0]})
@@ -228,6 +252,7 @@ def sources() -> Any:
         item = {key: source[key] for key in ("id", "label", "kind")}
         try:
             frequency, _ = _load_matrices(source["id"])
+            item["first_date"] = frequency.index[0].strftime("%Y-%m-%d")
             item["last_date"] = frequency.index[-1].strftime("%Y-%m-%d")
             item["next_date"] = (frequency.index[-1] + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
             item["days"] = int(len(frequency))
@@ -251,8 +276,8 @@ def forecast() -> Any:
         return jsonify({"error": f"model must be one of: {', '.join(ALLOWED_MODELS)}."}), 400
     if not 1 <= top_k <= 20:
         return jsonify({"error": "top_k must be between 1 and 20."}), 400
-    if not 30 <= test_days <= 300:
-        return jsonify({"error": "test_days must be between 30 and 300."}), 400
+    if not 30 <= test_days <= 366:
+        return jsonify({"error": "test_days must be between 30 and 366."}), 400
     target_date = body.get("target_date") or None
     target_end_date = body.get("target_end_date") or None
     for field, value in (("target_date", target_date), ("target_end_date", target_end_date)):

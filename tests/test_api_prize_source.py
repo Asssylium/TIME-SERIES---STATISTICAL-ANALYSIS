@@ -40,6 +40,22 @@ class ApiPrizeSourceTests(unittest.TestCase):
         result = response.get_json()
         self.assertEqual(result["target_date"], "2026-04-16")
         self.assertEqual(len(result["forecasts"]["poisson_prize_90d"]), 3)
+        self.assertEqual(result["analytics"]["schema_version"], "1.0")
+        self.assertEqual(result["analytics"]["models"], [])
+
+    def test_sources_expose_only_the_live_github_feed(self):
+        with patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source):
+            response = api.app.test_client().get("/api/sources")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["sources"], [{
+            "id": "live",
+            "label": "Live GitHub data feed",
+            "kind": "remote",
+            "first_date": "2026-01-01",
+            "last_date": "2026-04-15",
+            "next_date": "2026-04-16",
+            "days": 105,
+        }])
 
     def test_prize_poisson_range_refits_each_historical_date_without_future_labels(self):
         calls = []
@@ -90,6 +106,13 @@ class ApiPrizeSourceTests(unittest.TestCase):
             "history_days": 90,
             "n_estimators": 100,
         })
+        analytics = result["analytics"]
+        self.assertEqual(analytics["schema_version"], "1.0")
+        self.assertEqual(analytics["period"], {
+            "start_date": "2026-04-10", "end_date": "2026-04-12",
+        })
+        self.assertEqual(analytics["models"][0]["model_id"], "poisson_prize_90d")
+        self.assertEqual(len(analytics["models"][0]["series"]), 3)
         for target_text, (train, inference) in zip(
             ["2026-04-10", "2026-04-11", "2026-04-12"], calls, strict=True,
         ):
