@@ -27,8 +27,8 @@ load_bundled_openmp()
 
 from main import run_pipeline  # noqa: E402
 from src.count_features import COUNT_TARGET  # noqa: E402
-from src.data_loader import DEFAULT_XSMB_URL, XSMBDataLoader  # noqa: E402
-from src.prize_features import build_prize_feature_dataset, normalize_prizes  # noqa: E402
+from src.data_loader import XSMBDataLoader  # noqa: E402
+from src.prize_features import RAW_PRIZE_URL, build_prize_feature_dataset, normalize_prizes  # noqa: E402
 from src.prize_models import PrizeLGBMPredictor  # noqa: E402
 
 
@@ -50,7 +50,9 @@ def _source_catalog() -> dict[str, dict[str, str]]:
             "id": "live",
             "label": "Live GitHub data feed",
             "kind": "remote",
-            "location": DEFAULT_XSMB_URL,
+            # Ordered prizes support Prize Poisson and can also be aggregated
+            # by XSMBDataLoader for the other models and source-health display.
+            "location": RAW_PRIZE_URL,
         }
     }
     for folder in SOURCE_DIRS:
