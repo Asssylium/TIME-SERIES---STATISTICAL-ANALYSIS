@@ -21,13 +21,15 @@ Set-Location 'D:\TIME-SERIES & STATISTICAL ANALYSIS'
 ## Quy tắc đã khóa
 
 - Phương án chính: **Poisson Top 5**; Binary Top 5 và Regularized Top 5 là hai đối chứng. Ba tài khoản giả lập riêng, không cộng chúng thành một chiến lược.
-- 23.000đ/số/ngày; nhận tổng 80.000đ **mỗi lần xuất hiện**. Không cộng thêm hoàn vốn. Một số về hai lần nhận 160.000đ.
+- 27.000đ/số/ngày; nhận tổng 99.000đ **mỗi lần xuất hiện**. Không cộng thêm hoàn vốn. Một số về hai lần nhận 198.000đ.
 - Mỗi ngày phải ghi hoàn tất trước **18:00 UTC+7**. Mô hình chỉ nhận kết quả đến hôm trước. Nếu nguồn đã có kết quả hôm nay, từ chối ghi dự báo mang tính tương lai.
 - Chấm kết quả từ **19:00** trở đi và chỉ khi nguồn có đủ 27 giải hợp lệ. Kết quả ngày cũ có thể được chấm vào lần chạy sau.
 - Huấn luyện ban đầu với nhãn có trước ngày bắt đầu, sau đó huấn luyện lại vào quý lịch mới, dùng nhãn trước quý mới. Cửa sổ nhãn 1.095 ngày; tham số, phiên bản thư viện và mã nguồn được ghi trong giao thức. Không tìm tham số mới trên kết quả thử nghiệm.
 - Đặc trưng được cập nhật bằng kết quả hoàn tất của hôm trước, dù mô hình giữ nguyên trong quý.
 - Ngày bỏ lỡ dự báo, ngày chờ kết quả và ngày đã chấm là các trạng thái khác nhau. Không tính ngày thiếu thành thua hoặc ngầm coi là quyết định không mua.
 - Điểm Poisson là số lần kỳ vọng; điểm Binary/Regularized là xác suất thô chưa hiệu chỉnh. Không đổi phương án chính sau khi thấy đối chứng có lãi hơn.
+
+Sổ đã khởi tạo giữ nguyên giao thức và số tiền đã khóa; không sửa các kết quả lịch sử. Sau khi mã nguồn đổi, mã băm khóa sổ cũ sẽ từ chối ghi hoặc chấm tiếp bằng mã mới. Muốn chạy theo quy tắc mới, hãy khởi tạo sổ riêng.
 
 ## Chạy tự động
 

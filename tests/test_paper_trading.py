@@ -70,6 +70,9 @@ class PaperJournalTests(unittest.TestCase):
 
     def test_duplicate_payouts_pending_days_and_idempotent_scoring(self) -> None:
         forecast = self.record()
+        protocol = self.ledger.get('protocol', 'v1')
+        self.assertEqual(protocol['stake'], 27000)
+        self.assertEqual(protocol['gross_per_occurrence'], 99000)
         chosen = forecast['forecasts']['prize_poisson']['numbers'][0]
         actual = self.result_raw(chosen)
         # Complete source alone is insufficient before the 19:00 guard.
@@ -82,7 +85,7 @@ class PaperJournalTests(unittest.TestCase):
         payout=self.ledger.get('result','2026-10-30')['models']['prize_poisson']
         self.assertEqual(payout['paid_occurrences'],27)
         self.assertEqual(payout['distinct_hits'],1)
-        self.assertEqual(payout['profit'],27*80000-5*23000)
+        self.assertEqual(payout['profit'],27*99000-5*27000)
         before=self.ledger.verify()
         settle(self.ledger,actual)
         self.assertEqual(before,self.ledger.verify())

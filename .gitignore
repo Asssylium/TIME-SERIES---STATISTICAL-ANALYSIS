@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/work/
+
+# Local environments and secrets
+.venv/
+venv/
+.env
+
+# Generated research caches and logs
+reports/**/cache/
+reports/**/*.log
+*.sqlite3
+

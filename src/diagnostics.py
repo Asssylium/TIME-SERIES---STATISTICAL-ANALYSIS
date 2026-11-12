@@ -41,8 +41,8 @@ def evaluate_payouts(
     selected: NDArray[np.generic],
     *,
     payout_mode: PayoutMode,
-    stake: float = 23_000,
-    gross_payout: float = 80_000,
+    stake: float = 27_000,
+    gross_payout: float = 99_000,
 ) -> PayoutResult:
     """Compute daily receipts, profit and ROI without treating repeats as hits.
 

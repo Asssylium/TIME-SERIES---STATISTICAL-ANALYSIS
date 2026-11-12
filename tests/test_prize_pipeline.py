@@ -113,7 +113,7 @@ class PrizePipelineTests(unittest.TestCase):
             ranking = pd.read_csv(output/"ranking.csv")
             self.assertEqual(len(ranking), 9)
             self.assertTrue(ranking.days.eq(4).all())
-            self.assertTrue((ranking.cost == ranking.top_k*4*23_000).all())
+            self.assertTrue((ranking.cost == ranking.top_k*4*27_000).all())
             forecasts = pd.read_csv(output/"forecast_top_k.csv", dtype={"number":str})
             self.assertEqual(len(forecasts), 6)
             self.assertEqual(set(forecasts.model), {"prize_binary", "prize_poisson"})

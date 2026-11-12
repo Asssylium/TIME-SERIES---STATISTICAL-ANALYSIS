@@ -11,6 +11,7 @@ import pandas as pd
 from main import main, run_pipeline
 from src.data_loader import NUMBER_COLUMNS
 from src.count_features import build_count_feature_dataset
+from src.count_models import CountLGBMPredictor
 from src.features import build_feature_dataset
 from src.models import BaselinePredictor, LGBMPredictor, TARGET
 from src.regularized_models import RegularizedLGBMPredictor
@@ -85,9 +86,9 @@ class PipelineTests(unittest.TestCase):
         money = result.payouts["baseline"].summary
         self.assertEqual(money["distinct_hits"], 2)
         self.assertEqual(money["occurrences"], 54)
-        self.assertEqual(money["cost"], 46_000)
-        self.assertEqual(money["receipts"], 4_320_000)
-        self.assertEqual(money["profit"], 4_274_000)
+        self.assertEqual(money["cost"], 54_000)
+        self.assertEqual(money["receipts"], 5_346_000)
+        self.assertEqual(money["profit"], 5_292_000)
 
     def test_regularized_pipeline_uses_count_features_without_target_leakage(self) -> None:
         payload = self.raw.to_csv(index=False).encode()
@@ -97,8 +98,41 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(set(result.forecasts), {"regularized"})
         self.assertEqual(len(result.forecasts["regularized"]), 3)
         self.assertTrue(all(0 <= score <= 1 for _, score in result.forecasts["regularized"]))
-        self.assertEqual(result.payouts["regularized"].summary["cost"], 5 * 3 * 23_000)
+        self.assertEqual(result.payouts["regularized"].summary["cost"], 5 * 3 * 27_000)
         self.assertIn("Experimental regularized classifier", output.getvalue())
+
+    def test_poisson_pipeline_ranks_expected_occurrences(self) -> None:
+        payload = self.raw.to_csv(index=False).encode()
+        output = io.StringIO()
+        with patch("src.data_loader.urlopen", return_value=io.BytesIO(payload)), redirect_stdout(output):
+            result = run_pipeline(
+                model="poisson", top_k=3, test_days=5, n_splits=3, n_estimators=8
+            )
+        self.assertEqual(set(result.forecasts), {"poisson"})
+        self.assertEqual(len(result.forecasts["poisson"]), 3)
+        self.assertTrue(all(score >= 0 for _, score in result.forecasts["poisson"]))
+        self.assertEqual(result.payouts["poisson"].summary["cost"], 5 * 3 * 27_000)
+        self.assertIn("Poisson count model", output.getvalue())
+        self.assertIn("Expected occurrences (Poisson)", output.getvalue())
+
+    def test_all_models_produce_separate_top_k_forecasts(self) -> None:
+        payload = self.raw.to_csv(index=False).encode()
+        output = io.StringIO()
+        with patch("src.data_loader.urlopen", return_value=io.BytesIO(payload)), redirect_stdout(output):
+            result = run_pipeline(
+                model="all", top_k=3, test_days=5, n_splits=3, n_estimators=5
+            )
+        expected_models = {"baseline", "lightgbm", "regularized", "poisson"}
+        self.assertEqual(set(result.forecasts), expected_models)
+        self.assertEqual(set(result.evaluations), expected_models)
+        self.assertEqual(set(result.payouts), expected_models)
+        for forecasts in result.forecasts.values():
+            self.assertEqual(len(forecasts), 3)
+            self.assertEqual(len({number for number, _ in forecasts}), 3)
+        self.assertIn("BASELINE TOP 3", output.getvalue())
+        self.assertIn("LIGHTGBM TOP 3", output.getvalue())
+        self.assertIn("REGULARIZED TOP 3", output.getvalue())
+        self.assertIn("POISSON TOP 3", output.getvalue())
 
     def test_missing_calendar_dates_are_not_mislabeled(self) -> None:
         raw = self.raw.drop(index=[10, 20, 60])
@@ -122,10 +156,11 @@ class PipelineTests(unittest.TestCase):
                     redirect_stdout(io.StringIO()):
                 return run_pipeline(model=model, top_k=3, test_days=3, n_splits=2, n_estimators=5, **options)
 
-        for model in ["both", "regularized"]:
+        for model in ["both", "regularized", "poisson"]:
             with self.subTest(model=model):
-                builder = build_count_feature_dataset if model == "regularized" else build_feature_dataset
-                builder_name = "main.build_count_feature_dataset" if model == "regularized" else "main.build_feature_dataset"
+                uses_count_features = model in {"regularized", "poisson"}
+                builder = build_count_feature_dataset if uses_count_features else build_feature_dataset
+                builder_name = "main.build_count_feature_dataset" if uses_count_features else "main.build_feature_dataset"
                 with patch(builder_name, wraps=builder) as build:
                     reference = offline_run(truncated, model)
                     requested_result = offline_run(self.raw, model, forecast_date="2026-02-20")
@@ -156,13 +191,14 @@ class PipelineTests(unittest.TestCase):
             (self.raw, (self.raw.date.iloc[-1] + pd.Timedelta(days=2)).strftime("%Y-%m-%d")),
         ]
         for raw, date in cases:
-            for model in ["both", "regularized"]:
+            for model in ["both", "regularized", "poisson"]:
                 with self.subTest(date=date, model=model), \
                         patch("src.data_loader.urlopen", return_value=io.BytesIO(raw.to_csv(index=False).encode())), \
                         patch("main.build_feature_dataset") as features, \
                         patch("main.build_count_feature_dataset") as count_features, \
                         patch.object(LGBMPredictor, "fit") as fit, \
                         patch.object(RegularizedLGBMPredictor, "fit") as regularized_fit, \
+                        patch.object(CountLGBMPredictor, "fit") as poisson_fit, \
                         patch.object(BaselinePredictor, "fit") as baseline_fit, \
                         redirect_stdout(io.StringIO()):
                     with self.assertRaises(ValueError):
@@ -171,6 +207,7 @@ class PipelineTests(unittest.TestCase):
                     count_features.assert_not_called()
                     fit.assert_not_called()
                     regularized_fit.assert_not_called()
+                    poisson_fit.assert_not_called()
                     baseline_fit.assert_not_called()
 
     def test_forecast_date_requires_strict_iso_format_before_download(self) -> None:
@@ -209,6 +246,12 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(main(["--model", "regularized", "--forecast-date", "2026-02-20"]), 0)
             self.assertEqual(run.call_args.kwargs["forecast_date"], "2026-02-20")
             self.assertEqual(run.call_args.kwargs["model"], "regularized")
+            self.assertEqual(main(["--model", "poisson", "--top-k", "3"]), 0)
+            self.assertEqual(run.call_args.kwargs["model"], "poisson")
+            self.assertEqual(run.call_args.kwargs["top_k"], 3)
+            self.assertEqual(main(["--model", "all", "--top-k", "3"]), 0)
+            self.assertEqual(run.call_args.kwargs["model"], "all")
+            self.assertEqual(run.call_args.kwargs["top_k"], 3)
 
     def test_cli_rejects_invalid_forecast_date_without_downloading(self) -> None:
         with patch("src.data_loader.urlopen") as download, redirect_stderr(io.StringIO()):

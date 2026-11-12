@@ -23,13 +23,13 @@ class DiagnosticsTests(unittest.TestCase):
     def test_repeated_payout_is_not_binary_precision(self):
         once = evaluate_payouts(self.counts, self.selected, payout_mode="once_per_day")
         repeated = evaluate_payouts(self.counts, self.selected, payout_mode="per_occurrence")
-        self.assertEqual(once.summary["cost"], 92_000)
-        self.assertEqual(once.summary["profit"], 68_000)
-        self.assertEqual(repeated.summary["profit"], 148_000)
+        self.assertEqual(once.summary["cost"], 108_000)
+        self.assertEqual(once.summary["profit"], 90_000)
+        self.assertEqual(repeated.summary["profit"], 189_000)
         self.assertEqual(once.summary["precision_at_k"], 0.5)
         self.assertEqual(repeated.summary["precision_at_k"], 0.5)
         self.assertEqual(repeated.summary["occurrences_per_selection"], 0.75)
-        self.assertEqual(repeated.summary["break_even_units_per_selection"], 0.2875)
+        self.assertAlmostEqual(repeated.summary["break_even_units_per_selection"], 27_000 / 99_000)
 
     def test_zero_selections_and_drawdown_include_initial_capital(self):
         empty = evaluate_payouts(self.counts, self.selected * 0, payout_mode="per_occurrence")
@@ -38,7 +38,7 @@ class DiagnosticsTests(unittest.TestCase):
         losers = np.zeros_like(self.selected)
         losers[:, 98] = True
         loss = evaluate_payouts(self.counts, losers, payout_mode="once_per_day")
-        self.assertEqual(loss.summary["max_drawdown"], 46_000)
+        self.assertEqual(loss.summary["max_drawdown"], 54_000)
 
     def test_probability_metrics_match_hand_calculation(self):
         y = np.zeros((2, 100))

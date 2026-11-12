@@ -1,0 +1,14 @@
+{
+  "status": "corrected_1095d_feature_history_origin",
+  "evaluation_start": "2026-01-01",
+  "evaluation_end": "2026-10-29",
+  "paired_evaluation_days": 297,
+  "models": [
+    "poisson",
+    "binary"
+  ],
+  "90d_input_sha256": "6dc0f108835f1b759b0d44855f91039e90b85e4d5a7731ff7a9cf44315c0a3bf",
+  "1095d_input_sha256": "0d02598b86b56a8acd904d8bc4144012ae5a9cc86317cb90acc89ea190c161dd",
+  "generator_sha256": "5a8db137330d2586fd6c541c8d8844bae85644ef3a24d2093072da039fc12cad",
+  "1095d_feature_history_policy": "complete fixed source history before trimming output rows"
+}

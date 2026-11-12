@@ -1,0 +1,99 @@
+{
+  "start": "2026-01-01",
+  "end": "2026-11-01",
+  "days_in_source": 300,
+  "history_days": 90,
+  "history_policy": "Daily rolling calendar-day training labels strictly before target.",
+  "top_k": 3,
+  "models": [
+    "regularized",
+    "poisson",
+    "binary",
+    "lightgbm"
+  ],
+  "payout": {
+    "stake_per_selection_vnd": 27000,
+    "gross_per_occurrence_vnd": 99000,
+    "separate_stake_refund": false
+  },
+  "payout_mode": "per_occurrence",
+  "source_url": "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb.csv",
+  "source_sha256": "ab6dee6c8d22718ee203a53cc73f90b18454cd9383da6045309ae81ee94761d7",
+  "model_params": {
+    "regularized": {
+      "objective": "binary",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "poisson": {
+      "objective": "poisson",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "binary": {
+      "objective": "binary",
+      "n_estimators": 100,
+      "learning_rate": 0.03,
+      "num_leaves": 7,
+      "min_child_samples": 200,
+      "reg_lambda": 20.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    },
+    "lightgbm": {
+      "objective": "binary",
+      "n_estimators": 200,
+      "learning_rate": 0.05,
+      "num_leaves": 15,
+      "min_child_samples": 50,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "n_jobs": 1,
+      "verbosity": -1,
+      "deterministic": true,
+      "force_col_wise": true
+    }
+  },
+  "excluded_dates": [
+    {
+      "date": "2026-02-16",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-17",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-18",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-19",
+      "reason": "actual outcome missing"
+    },
+    {
+      "date": "2026-02-20",
+      "reason": "preceding calendar day missing"
+    }
+  ],
+  "notes": "Retrospective comparison; no model/parameter selection on evaluation outcomes."
+}

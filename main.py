@@ -3,6 +3,8 @@
 Examples:
     python main.py
     python main.py --model both --test-days 90 --top-k 5
+    python main.py --model all --top-k 3
+    python main.py --model poisson --top-k 3
     python main.py --model regularized --top-k 5 --forecast-date 2026-10-30
     python main.py --model baseline --url https://example.com/draws.csv
 
@@ -31,6 +33,7 @@ from src.diagnostics import PayoutResult, evaluate_payouts
 from src.features import build_feature_dataset
 from src.models import BaselinePredictor, LGBMPredictor, TARGET, TopK
 from src.count_features import COUNT_TARGET, build_count_feature_dataset
+from src.count_models import CountLGBMPredictor
 from src.regularized_models import RegularizedLGBMPredictor
 
 
@@ -75,7 +78,9 @@ def run_pipeline(
     LightGBM forecasts are uncalibrated daily-presence probabilities. The
     optional regularized classifier uses normalized features and the preceding
     1095 calendar days of labels; it remains an experimental alternative.
-    Payout reports count every actual occurrence at 23,000/80,000 VND.
+    The Poisson model estimates expected repeat-inclusive occurrence counts
+    from normalized count features.
+    Payout reports count every actual occurrence at 27,000/99,000 VND.
     Baseline
     forecasts are 30-day frequency counts and are explicitly labeled as such.
     By default the final forecast date is last observed date + 1, not the
@@ -84,16 +89,20 @@ def run_pipeline(
     calendar day's result must be available. Test metrics cover earlier days;
     they do not evaluate the requested forecast day's result.
     """
-    if model not in {"baseline", "lightgbm", "regularized", "both"}:
-        raise ValueError("model must be baseline, lightgbm, regularized, or both.")
-    if n_estimators is None:
-        n_estimators = 100 if model == "regularized" else 200
+    if model not in {"baseline", "lightgbm", "regularized", "poisson", "both", "all"}:
+        raise ValueError("model must be baseline, lightgbm, regularized, poisson, both, or all.")
     for name, value in {
         "top_k": top_k, "test_days": test_days, "n_splits": n_splits,
-        "gap": gap, "n_estimators": n_estimators, "n_jobs": n_jobs,
+        "gap": gap, "n_jobs": n_jobs,
     }.items():
         if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)) or value < 1:
             raise ValueError(f"{name} must be a positive integer.")
+    if n_estimators is not None and (
+        isinstance(n_estimators, (bool, np.bool_))
+        or not isinstance(n_estimators, (int, np.integer))
+        or n_estimators < 1
+    ):
+        raise ValueError("n_estimators must be a positive integer.")
     if top_k > 100 or n_splits < 2:
         raise ValueError("top_k must be <= 100 and n_splits must be >= 2.")
 
@@ -131,13 +140,20 @@ def run_pipeline(
     print(f"Observed days: {len(frequency):,}; {frequency.index[0]:%Y-%m-%d} to {frequency.index[-1]:%Y-%m-%d}")
 
     print("[2/5] Building causal rolling and gap features...", flush=True)
-    if model == "regularized":
+    if model in {"regularized", "poisson"}:
         dataset = build_count_feature_dataset(frequency, binary, include_unlabeled=True)
         target_column = COUNT_TARGET
-        print("Experimental regularized classifier: normalized features, trailing 1095-day labels; probabilities remain uncalibrated.")
+        if model == "regularized":
+            print("Experimental regularized classifier: normalized features, trailing 1095-day labels; probabilities remain uncalibrated.")
+        else:
+            print("Poisson count model: normalized features; scores estimate expected occurrences, including repeats.")
     else:
         dataset = build_feature_dataset(frequency, binary, include_unlabeled=True)
         target_column = TARGET
+    count_dataset = None
+    if model == "all":
+        count_dataset = build_count_feature_dataset(frequency, binary, include_unlabeled=True)
+        print("Experimental regularized classifier and Poisson count model included; Poisson scores estimate expected occurrences, including repeats.")
     labeled = dataset.loc[dataset[target_column].notna()]
     dates = pd.DatetimeIndex(labeled.index.get_level_values(0).unique())
     minimum_days = n_splits * test_days + gap + 1
@@ -164,8 +180,8 @@ def run_pipeline(
     print(f"Training labels end: {train_label_end:%Y-%m-%d}")
     print(f"Test target dates: {target_dates[0]:%Y-%m-%d} to {target_dates[-1]:%Y-%m-%d} ({len(target_dates)} days)")
     print("Test protocol: sequential next-day forecasts using only completed draws.")
-    if model in {"lightgbm", "regularized", "both"}:
-        print("LightGBM test: fitted once before the holdout; no daily refit. Daily-refit backtests use a different policy.")
+    if model in {"lightgbm", "regularized", "poisson", "both", "all"}:
+        print("Model test: fitted once before the holdout; no daily refit. Daily-refit backtests use a different policy.")
 
     # Recover the 27 actual results, retaining duplicates for the evaluator's
     # raw-count diagnostics. Metrics themselves count distinct matching numbers.
@@ -173,8 +189,14 @@ def run_pipeline(
         np.repeat(np.arange(100), counts)
         for counts in frequency.loc[target_dates].to_numpy(dtype=np.int64)
     ]
-    names = ["baseline", "lightgbm"] if model == "both" else [model]
-    model_parameters = {"n_estimators": n_estimators, "n_jobs": n_jobs}
+    names = (
+        ["baseline", "lightgbm", "regularized", "poisson"]
+        if model == "all"
+        else ["baseline", "lightgbm"] if model == "both" else [model]
+    )
+    model_parameters = {"n_jobs": n_jobs}
+    if n_estimators is not None:
+        model_parameters["n_estimators"] = int(n_estimators)
     evaluations: dict[str, EvaluationResult] = {}
     forecasts: dict[str, TopK] = {}
     payouts: dict[str, PayoutResult] = {}
@@ -194,18 +216,36 @@ def run_pipeline(
                 ]
                 predictions.append(baseline.train_predict(history, top_k=top_k))
         else:
-            predictor = RegularizedLGBMPredictor if name == "regularized" else LGBMPredictor
-            fitted = predictor(**model_parameters).fit(train)
+            model_train = train
+            model_test = test
+            if name in {"regularized", "poisson"} and count_dataset is not None:
+                count_labeled = count_dataset.loc[count_dataset[COUNT_TARGET].notna()]
+                count_origins = count_labeled.index.get_level_values(0)
+                model_train = count_labeled.loc[count_origins.isin(train_dates)]
+                model_test = count_labeled.loc[count_origins.isin(test_dates)]
             if name == "regularized":
+                fitted = RegularizedLGBMPredictor(**model_parameters).fit(model_train)
                 print(f"Actual fitted label dates: {fitted.training_label_start_:%Y-%m-%d} to {fitted.trained_through_:%Y-%m-%d}")
-            probabilities = fitted.predict_proba(test).unstack(level=1)
-            probabilities = probabilities.reindex(index=test_dates, columns=NUMBER_COLUMNS)
-            scores = probabilities.to_numpy()
+                probabilities = fitted.predict_proba(model_test)
+                score_label = "Estimated P(at least one appearance), uncalibrated"
+            elif name == "poisson":
+                fitted = CountLGBMPredictor(**model_parameters).fit(model_train)
+                probabilities = fitted.predict_expected_counts(model_test)
+                score_label = "Expected occurrences (Poisson)"
+            else:
+                fitted = LGBMPredictor(**model_parameters).fit(model_train)
+                probabilities = fitted.predict_proba(model_test)
+                score_label = "Estimated P(at least one appearance), uncalibrated"
+            scores = probabilities.unstack(level=1).reindex(
+                index=test_dates, columns=NUMBER_COLUMNS
+            ).to_numpy()
             order = np.argsort(-scores, axis=1, kind="stable")[:, :top_k]
             predictions = [
                 [(NUMBER_COLUMNS[number], float(scores[row, number])) for number in selected]
                 for row, selected in enumerate(order)
             ]
+            if name == "poisson":
+                print("Poisson test ranks candidates by expected occurrence count, including repeats.")
         evaluations[name] = evaluate_test_set(truth, predictions, k=top_k, dates=target_dates)
         print_summary_report(evaluations[name])
         selection = np.zeros((len(target_dates), 100), dtype=bool)
@@ -213,28 +253,45 @@ def run_pipeline(
             selection[row, [int(number) for number, _ in predicted]] = True
         payouts[name] = evaluate_payouts(
             frequency.loc[target_dates].to_numpy(dtype=np.int64), selection,
-            payout_mode="per_occurrence", stake=23_000, gross_payout=80_000,
+            payout_mode="per_occurrence", stake=27_000, gross_payout=99_000,
         )
         money = payouts[name].summary
-        print("Payout rule: 23,000 VND per selected number; gross 80,000 VND per occurrence (including repeats).")
+        print("Payout rule: 27,000 VND per selected number; gross 99,000 VND per occurrence (including repeats).")
         print(f"Occurrences: {money['occurrences']}; cost: {money['cost']:,.0f}; receipts: {money['receipts']:,.0f}; profit: {money['profit']:+,.0f} VND; ROI: {money['roi']:.2%}")
 
     # Test metrics are now finalized. It is safe to use all observed labels
     # (including former test outcomes) for a separate, future-facing model.
     prediction_date = frequency.index[-1] + one_day
     print(f"\n[5/5] Fitting forecast models for {prediction_date:%Y-%m-%d}...", flush=True)
-    latest = dataset.loc[dataset.index.get_level_values(0) == frequency.index[-1]]
     for name in names:
         if name == "baseline":
             forecasts[name] = BaselinePredictor().train_predict(frequency, top_k=top_k)
             score_label = "30-day count"
             display_scores = [f"{score:.0f}" for _, score in forecasts[name]]
         else:
-            predictor = RegularizedLGBMPredictor if name == "regularized" else LGBMPredictor
-            final_model = predictor(**model_parameters).fit(dataset)
-            forecasts[name] = final_model.predict(latest, top_k=top_k)
-            score_label = "Estimated P(at least one appearance), uncalibrated"
-            display_scores = [f"{score:.2%}" for _, score in forecasts[name]]
+            model_dataset = (
+                count_dataset
+                if name in {"regularized", "poisson"} and count_dataset is not None
+                else dataset
+            )
+            model_latest = model_dataset.loc[
+                model_dataset.index.get_level_values(0) == frequency.index[-1]
+            ]
+            if name == "regularized":
+                final_model = RegularizedLGBMPredictor(**model_parameters).fit(model_dataset)
+                forecasts[name] = final_model.predict(model_latest, top_k=top_k)
+                score_label = "Estimated P(at least one appearance), uncalibrated"
+                display_scores = [f"{score:.2%}" for _, score in forecasts[name]]
+            elif name == "poisson":
+                final_model = CountLGBMPredictor(**model_parameters).fit(model_dataset)
+                forecasts[name] = final_model.predict(model_latest, top_k=top_k)
+                score_label = "Expected occurrences (Poisson)"
+                display_scores = [f"{score:.3f}" for _, score in forecasts[name]]
+            else:
+                final_model = LGBMPredictor(**model_parameters).fit(model_dataset)
+                forecasts[name] = final_model.predict(model_latest, top_k=top_k)
+                score_label = "Estimated P(at least one appearance), uncalibrated"
+                display_scores = [f"{score:.2%}" for _, score in forecasts[name]]
         table = pd.DataFrame({
             "Rank": np.arange(1, top_k + 1),
             "Number": [number for number, _ in forecasts[name]],
@@ -250,7 +307,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Parse CLI arguments and return an exit code without hiding failures."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--url", default=DEFAULT_XSMB_URL, help="CSV URL (defaults to the XSMB source).")
-    parser.add_argument("--model", choices=["baseline", "lightgbm", "regularized", "both"], default="lightgbm")
+    parser.add_argument("--model", choices=["baseline", "lightgbm", "regularized", "poisson", "both", "all"], default="lightgbm",
+                        help="'poisson' ranks expected repeat-inclusive counts; 'all' runs baseline, LightGBM, regularized, and Poisson.")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--forecast-date", default=None, metavar="YYYY-MM-DD",
                         help="Forecast this calendar day using only earlier draws; requires its preceding day's result. Default: last observed day + 1.")

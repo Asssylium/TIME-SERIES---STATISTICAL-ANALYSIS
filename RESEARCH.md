@@ -1,8 +1,8 @@
 # Chạy nghiên cứu và đọc kết quả
 
-Kết quả đã chạy nằm trong [báo cáo](reports/research_2026-10-29/report.md).
-Xem [từng ngày](reports/research_2026-10-29/daily_results.csv) và
-[chỉ số tổng hợp](reports/research_2026-10-29/metrics.csv) để kiểm tra lại.
+Kết quả đã chọn nằm trong [báo cáo](reports/research/baseline_model_2026/report.md).
+Xem [từng ngày](reports/research/baseline_model_2026/daily_results.csv) và
+[chỉ số tổng hợp](reports/research/baseline_model_2026/metrics.csv) để kiểm tra lại.
 
 ## Chạy bằng môi trường Python hiện có trên máy này
 
@@ -26,9 +26,9 @@ python research.py
 
 Chương trình dùng lại cache khi mã nguồn, dữ liệu và giao thức không thay đổi.
 Nếu nguồn CSV đã cập nhật, chương trình từ chối trộn dữ liệu mới với kết quả cũ.
-Dùng `--output reports/research_new` với Python chuẩn để ghi lần chạy mới.
+Dùng `--output work/reports/research_new` với Python chuẩn để ghi lần chạy mới.
 Với lệnh PowerShell ở trên, thêm dòng
-`sys.argv = ['research.py', '--output', 'reports/research_new']`
+`sys.argv = ['research.py', '--output', 'work/reports/research_new']`
 trước dòng `runpy.run_path(...)`.
 
 Đây là thí nghiệm có các mốc thời gian cố định, không phải hệ thống tự động
@@ -40,11 +40,12 @@ tạo thêm bằng chứng độc lập.
 
 - Dữ liệu có 100 số từ 00 đến 99; mỗi ngày có 27 kết quả, có thể trùng.
 - `Precision@5` đếm số trúng khác nhau trong 5 số đã chọn.
-- `occurrences_per_selection` tính cả số lần lặp, phù hợp khi trả 80.000đ
+- `occurrences_per_selection` tính cả số lần lặp, phù hợp khi trả 99.000đ
   cho mỗi lần xuất hiện. Hai cách trả thưởng có thể dẫn tới Top 5 khác nhau.
-- 80.000đ được hiểu là tổng tiền nhận; giá mua 23.000đ mỗi số.
+- 99.000đ được hiểu là tổng tiền nhận; giá mua 27.000đ mỗi số.
 - Tỷ lệ ngày trúng ít nhất một số không phải tỷ lệ ngày có lãi:
-  mua 5 số tốn 115.000đ, nhận một khoản thưởng 80.000đ vẫn lỗ 35.000đ.
+  mua 5 số tốn 135.000đ, nhận một khoản thưởng 99.000đ vẫn lỗ 36.000đ.
+- Các báo cáo/giao thức đã tạo trước khi sửa quy tắc giữ nguyên số liệu lịch sử.
 - Phần trăm của LightGBM trong lệnh dự báo thông thường là ước lượng chưa
   hiệu chỉnh. Bản nghiên cứu kiểm tra hiệu chỉnh riêng nhưng không tự động
   đưa mô hình hoặc quy tắc hiệu chỉnh sang lệnh dự báo.

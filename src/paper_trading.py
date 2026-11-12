@@ -136,7 +136,7 @@ def initialize(ledger: Ledger) -> dict:
                   "end": str(start+timedelta(days=89)), "days": 90, "timezone": "UTC+07:00",
                   "forecast_deadline": "18:00", "settlement_not_before": "19:00",
                   "primary": "prize_poisson", "models": list(MODELS), "top_k": 5,
-                  "stake": 23000, "gross_per_occurrence": 80000, "history_days": 1095,
+                  "stake": 27000, "gross_per_occurrence": 99000, "history_days": 1095,
                   "source_url": RAW_PRIZE_URL, "refit": "initial start, then each calendar quarter",
                   "parameters": {"prize_poisson": PrizeLGBMPredictor("poisson").params,
                                  "prize_binary": PrizeLGBMPredictor("binary").params,

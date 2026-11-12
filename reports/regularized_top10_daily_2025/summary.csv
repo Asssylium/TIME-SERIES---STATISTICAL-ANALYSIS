@@ -1,2 +1,0 @@
-﻿calendar_days,excluded_days,top_k,payout_mode,days,selections,distinct_hits,occurrences,payout_units,cost,receipts,profit,roi,precision_at_k,occurrences_per_selection,days_with_hit,profitable_days,mean_profit_per_day,max_drawdown,break_even_units_per_selection,losing_days,break_even_days
-365,5,10,per_occurrence,360,3600,848,967,967,82800000.0,77360000.0,-5440000.0,-0.06570048309178744,0.23555555555555555,0.26861111111111113,343,176,-15111.111111111111,6130000.0,0.2875,184,0

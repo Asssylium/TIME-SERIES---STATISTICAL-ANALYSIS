@@ -1,0 +1,22 @@
+{
+  "status": "corrected_after_feature_history_origin_audit",
+  "evaluation_start": "2025-01-01",
+  "evaluation_end": "2026-10-29",
+  "models": [
+    "poisson",
+    "binary"
+  ],
+  "candidate_numbers": "00-99",
+  "top_k": 3,
+  "evaluated_results_per_day": 27,
+  "history_calendar_days": 1095,
+  "refit_policy": "before each calendar quarter",
+  "feature_history_policy": "complete fixed source history before trimming output rows",
+  "input_daily": "D:\\TIME-SERIES & STATISTICAL ANALYSIS-report-archive-20261105\\reports\\obsolete\\audit_1095d_fixed_history_2025_2026\\daily.csv",
+  "input_daily_sha256": "0d02598b86b56a8acd904d8bc4144012ae5a9cc86317cb90acc89ea190c161dd",
+  "generator_sha256": "5a8db137330d2586fd6c541c8d8844bae85644ef3a24d2093072da039fc12cad",
+  "payout": {
+    "stake_per_day_vnd": 81000,
+    "gross_per_occurrence_vnd": 99000
+  }
+}
