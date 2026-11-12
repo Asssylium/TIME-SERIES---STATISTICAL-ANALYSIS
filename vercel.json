@@ -2,13 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
+  "installCommand": "",
   "buildCommand": "python3 scripts/operations/bundle_openmp.py",
   "outputDirectory": "public",
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
       "includeFiles": "{data/**/*.csv,data/**/*.json,native/**}",
-      "excludeFiles": "{tests/**,reports/**,work/**,scripts/**,.venv/**}"
+      "excludeFiles": "{tests/**,reports/**,work/**,scripts/**,.venv/**,venv/**,.vercel_python_packages/**,**/__pycache__/**}"
     }
   },
   "rewrites": [

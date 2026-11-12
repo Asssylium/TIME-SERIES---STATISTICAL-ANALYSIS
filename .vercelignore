@@ -1,5 +1,8 @@
 .git
 .pytest_cache
+.vercel_python_packages
+.venv
+venv
 __pycache__
 *.py[cod]
 tests

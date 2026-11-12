@@ -141,6 +141,16 @@ vercel --prod
 The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
 `POST /api/forecast` for the browser UI or other clients.
 
+Python is pinned to 3.12 in `.python-version`. The empty `installCommand` in
+`vercel.json` skips the static site's automatic Python dependency installation;
+the Python API builder still installs `requirements.txt`. The OpenMP build
+step uses only the standard library. Do not add a second pip/uv install to the
+static build: it creates `.vercel_python_packages`, duplicating the API's
+dependencies and potentially exceeding the function bundle limit. This folder
+is explicitly excluded, including when restored from an older build cache.
+
+After changing these deployment settings, redeploy without the build cache.
+
 Open PowerShell in the repository folder:
 
 ```powershell

@@ -6,6 +6,7 @@ __pycache__/
 
 # Local environments and secrets
 .venv/
+.vercel_python_packages/
 venv/
 .env
 
