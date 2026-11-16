@@ -16,11 +16,13 @@ const descriptions = {
   ensemble: 'A blended view across available model scores.',
 };
 const chartColors = ['#315BE8', '#16A36A', '#E28A16', '#8B5CF6', '#D64A67'];
+const CONFIRMED_STORAGE_KEY = 'xsmb.confirmedTop3Forecasts.v1';
 let sourceData = [];
 let sourceRevision = null;
 let runs = [];
 let latestPayload = null;
 let latestAnalytics = null;
+let latestConfirmedPayload = null;
 let chartViewport = { start: 0, end: null };
 
 for (const id of ['model', 'setupModel']) {
@@ -58,23 +60,22 @@ function addDays(isoDate, amount) {
   date.setUTCDate(date.getUTCDate() + amount);
   return isoDay(date);
 }
-function inclusiveDays(start, end) {
-  return Math.floor((new Date(`${end}T00:00:00Z`) - new Date(`${start}T00:00:00Z`)) / 86400000) + 1;
+
+function loadConfirmedForecasts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONFIRMED_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) {
+    return [];
+  }
 }
 
-function updateAnalyticsDates() {
-  const source = sourceData[0];
-  if (!source?.last_date) return;
-  const period = $('analyticsPeriod').value;
-  const length = period === 'custom' ? null : Number(period);
-  for (const id of ['analyticsStart', 'analyticsEnd']) {
-    $(id).min = source.first_date || '';
-    $(id).max = source.last_date;
-  }
-  if (length) {
-    $('analyticsEnd').value = source.last_date;
-    $('analyticsStart').value = addDays(source.last_date, -(length - 1));
-  }
+function storeConfirmedForecasts(records) {
+  localStorage.setItem(CONFIRMED_STORAGE_KEY, JSON.stringify(records));
+}
+
+function confirmedForDate(targetDate) {
+  return loadConfirmedForecasts().find((record) => record.target_date === targetDate);
 }
 
 function updateSource(item) {
@@ -100,7 +101,6 @@ function updateSource(item) {
   $('setupTargetEnd').min = target;
   $('setupDataCheck').textContent = item.error || `${Number(item.days || 0).toLocaleString()} GitHub rows passed validation.`;
   $('setupDateCheck').textContent = target ? `Next forecast date is ${target}.` : 'The GitHub feed is unavailable.';
-  updateAnalyticsDates();
 }
 
 function fillSources() {
@@ -125,6 +125,10 @@ async function loadSources() {
   fillSources();
   $('status').textContent = 'Ready to forecast.';
   setConnection('API ready');
+  await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
+    $('analyticsStatus').textContent = error.message;
+    $('analyticsStatus').classList.add('error');
+  });
 }
 
 async function refreshGithubSource() {
@@ -150,6 +154,10 @@ async function refreshGithubSource() {
     $('dataStatus').textContent = message;
     $('analyticsStatus').textContent = message;
     setConnection('GitHub refreshed');
+    await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
+      $('analyticsStatus').textContent = error.message;
+      $('analyticsStatus').classList.add('error');
+    });
   } catch (error) {
     $('status').textContent = error.message;
     $('status').classList.add('error');
@@ -186,6 +194,87 @@ async function postForecast(body) {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'Forecast failed.');
   return payload;
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || 'Request failed.');
+  return payload;
+}
+
+function confirmationEligibility(payload) {
+  if (Array.isArray(payload.results)) return 'Date ranges cannot be confirmed.';
+  if (payload.model !== 'poisson_prize_90d') return 'Confirmation is available only for Poisson Prize 90d.';
+  if (Number(payload.top_k) !== 3) return 'Confirmed research is fixed to Top-3.';
+  const predictions = payload.forecasts?.poisson_prize_90d || [];
+  if (predictions.length !== 3) return 'The forecast must contain exactly three distinct numbers.';
+  if (!payload.target_date || !payload.data_through_date
+      || payload.target_date !== addDays(payload.data_through_date, 1)) {
+    return 'Only a next-day forecast using the immediately preceding draw can be confirmed.';
+  }
+  if (sourceData[0]?.last_date && payload.target_date <= sourceData[0].last_date) {
+    return 'This draw is already available, so the forecast cannot be confirmed retrospectively.';
+  }
+  return null;
+}
+
+async function confirmLatestForecast(payload) {
+  const predictions = payload.forecasts.poisson_prize_90d;
+  const response = await postJson('/api/confirmed/confirm', {
+    source: 'live', model_id: 'poisson_prize_90d', top_k: 3,
+    target_date: payload.target_date, data_through_date: payload.data_through_date,
+    numbers: predictions.map((entry) => entry.number),
+  });
+  const records = loadConfirmedForecasts();
+  if (records.some((record) => record.target_date === response.record.target_date)) {
+    throw new Error('A forecast for this target date is already confirmed.');
+  }
+  records.push(response.record);
+  records.sort((left, right) => left.target_date.localeCompare(right.target_date));
+  storeConfirmedForecasts(records);
+  return response.record;
+}
+
+function renderForecastConfirmation(payload) {
+  const container = $('forecastConfirmation');
+  const reason = confirmationEligibility(payload);
+  const existing = payload.target_date ? confirmedForDate(payload.target_date) : null;
+  if (reason && !existing) {
+    container.hidden = false;
+    container.innerHTML = `<article class="panel confirmation-card"><div class="panel-head"><div><h2>Confirm this forecast</h2><p>Only prospective Poisson Prize 90d Top-3 forecasts can enter the confirmed chart.</p></div><span class="eyebrow">Not eligible</span></div><div class="notice">${esc(reason)}</div></article>`;
+    return;
+  }
+  if (!payload.target_date) {
+    container.hidden = true;
+    container.innerHTML = '';
+    return;
+  }
+  const record = existing || {
+    numbers: (payload.forecasts?.poisson_prize_90d || []).map((entry) => entry.number),
+  };
+  container.hidden = false;
+  container.innerHTML = `<article class="panel confirmation-card"><div class="panel-head"><div><h2>Confirm this Top-3 forecast</h2><p>Only confirmed dates count toward the chart's hit rate, stake, profit, and ROI.</p></div><span class="eyebrow">${existing ? 'Locked' : 'Prospective'}</span></div><div class="confirmation-numbers">${record.numbers.map((number) => `<span class="number">${esc(number)}</span>`).join('')}</div><label class="confirmation-check"><input id="confirmForecast" type="checkbox" ${existing ? 'checked disabled' : ''}><span><strong>${existing ? 'Forecast confirmed' : 'I confirm these three numbers for this draw'}</strong><span>${existing ? `Confirmed ${esc(existing.confirmed_at_utc)}. It cannot be replaced in the app.` : 'Checking this box records the forecast before the result and locks the numbers in this browser.'}</span></span></label><div class="confirmation-status" id="confirmationStatus">${existing ? 'Waiting for settlement or already included on the chart page.' : 'Not confirmed; this date currently has no stake or performance impact.'}</div></article>`;
+  if (existing) return;
+  $('confirmForecast').addEventListener('change', async (event) => {
+    if (!event.target.checked) return;
+    const status = $('confirmationStatus');
+    event.target.disabled = true;
+    status.classList.remove('error');
+    status.textContent = 'Checking the live source and recording confirmation...';
+    try {
+      await confirmLatestForecast(payload);
+      renderForecastConfirmation(payload);
+      await refreshConfirmedAnalytics({ quiet: true });
+    } catch (error) {
+      event.target.checked = false;
+      event.target.disabled = false;
+      status.textContent = error.message;
+      status.classList.add('error');
+    }
+  });
 }
 
 function summarizeSeries(model) {
@@ -340,6 +429,7 @@ function renderResults(payload) {
   $('interpretation').innerHTML = `<div class="interpret-row"><span>Forecast cutoff</span><strong>${esc(cutoffText)}</strong></div><div class="interpret-row"><span>Training window</span><strong>${esc(payload.test_days || 30)} days</strong></div><div class="interpret-row"><span>Target dates</span><strong>${items.length}</strong></div><div class="interpret-row"><span>Ranking size</span><strong>${esc(payload.top_k || $('topk').value)}</strong></div>`;
   $('download').hidden = false;
   $('download').onclick = () => downloadCsv(payload);
+  renderForecastConfirmation(payload);
 }
 
 function renderComparison(payload) {
@@ -540,69 +630,73 @@ function renderAnalytics(analytics) {
   $('analyticsSummary').innerHTML = models.map((model, index) => `<article class="analytics-summary-card"><div class="label"><span class="model-swatch" style="background:${chartColors[index % chartColors.length]}"></span>${esc(model.model_name)}</div><div class="value">${(Number(model.summary.roi) * 100).toFixed(1)}% ROI</div><div class="muted">${(Number(model.summary.hit_rate) * 100).toFixed(1)}% hit days · ${Number(model.summary.mean_hits).toFixed(2)} hits/day</div></article>`).join('');
   renderAnalyticsCharts();
   $('analyticsTable').innerHTML = `<table><thead><tr><th>Model</th><th>Days</th><th>Hit rate</th><th>Total hits</th><th>Mean hits/day</th><th>ROI</th><th>Profit</th><th>Max drawdown</th></tr></thead><tbody>${models.map((model) => `<tr><td><strong>${esc(model.model_name)}</strong></td><td>${model.summary.days}</td><td>${(Number(model.summary.hit_rate) * 100).toFixed(1)}%</td><td>${model.summary.total_hits}</td><td>${Number(model.summary.mean_hits).toFixed(2)}</td><td>${(Number(model.summary.roi) * 100).toFixed(1)}%</td><td class="${model.summary.total_profit >= 0 ? 'profit-positive' : 'profit-negative'}">${formatMoney(model.summary.total_profit)}</td><td>${formatMoney(model.summary.max_drawdown)}</td></tr>`).join('')}</tbody></table>`;
-  $('analyticsModelFilter').innerHTML = models.map((model) => `<option value="${esc(model.model_id)}">${esc(model.model_name)}</option>`).join('');
-  if (models.length) renderAnalyticsDailyTable(models[0].model_id);
+  const filter = $('analyticsModelFilter');
+  if (filter?.tagName === 'SELECT') {
+    filter.innerHTML = models.map((model) => `<option value="${esc(model.model_id)}">${esc(model.model_name)}</option>`).join('');
+    if (models.length) renderAnalyticsDailyTable(models[0].model_id);
+  }
 }
 
-async function runAnalytics() {
+function renderConfirmedDailyTable(records) {
+  if (!records.length) {
+    $('analyticsDailyTable').innerHTML = '<div class="empty"><strong>No confirmed forecasts yet</strong><p>Run today’s Poisson Prize 90d Top-3 forecast and confirm it on the results page.</p></div>';
+    return;
+  }
+  $('analyticsDailyTable').innerHTML = `<table><thead><tr><th>Date</th><th>Status</th><th>Confirmed Top-3</th><th>Actual matches</th><th>Hits</th><th>Occurrences</th><th>Stake</th><th>Profit</th><th>Daily ROI</th></tr></thead><tbody>${records.map((row) => {
+    const settled = row.status === 'settled';
+    const matches = settled && row.matching_numbers.length
+      ? row.matching_numbers.map((item) => `${item.number}x${item.count}`).join(' · ') : '—';
+    const roi = settled && row.stake ? `${(Number(row.profit) / Number(row.stake) * 100).toFixed(1)}%` : '—';
+    return `<tr><td><strong>${esc(row.target_date)}</strong></td><td>${esc(row.status)}</td><td>${row.numbers.map((number) => esc(number)).join(' · ')}</td><td>${esc(matches)}</td><td>${settled ? row.hits : '—'}</td><td>${settled ? row.paid_occurrences : '—'}</td><td>${settled ? formatMoney(row.stake) : '—'}</td><td class="${settled ? (row.profit >= 0 ? 'profit-positive' : 'profit-negative') : ''}">${settled ? formatMoney(row.profit) : '—'}</td><td>${roi}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function renderConfirmedAnalytics(payload) {
+  latestConfirmedPayload = payload;
+  renderAnalytics(payload.analytics);
+  const analytics = payload.analytics;
+  const modelCards = $('analyticsSummary').innerHTML;
+  $('analyticsSummary').innerHTML = `<article class="analytics-summary-card"><div class="label">Confirmed dates</div><div class="value">${analytics.confirmed_count}</div><div class="muted">Explicitly checked Top-3 forecasts</div></article><article class="analytics-summary-card"><div class="label">Settled</div><div class="value">${analytics.settled_count}</div><div class="muted">Included in hit rate and ROI</div></article><article class="analytics-summary-card"><div class="label">Pending</div><div class="value">${analytics.pending_count}</div><div class="muted">No stake or result yet</div></article>${modelCards}`;
+  if (!(analytics.models || []).length) {
+    $('analyticsTable').innerHTML = '<div class="empty"><strong>No settled confirmed dates</strong><p>Pending confirmations will be scored after the live source contains their draw.</p></div>';
+  }
+  $('analyticsPeriodLabel').textContent = analytics.period?.start_date
+    ? `${analytics.period.start_date} to ${analytics.period.end_date}` : 'No settled dates';
+  $('analyticsModelFilter').textContent = 'Poisson Prize 90d · Top-3';
+  renderConfirmedDailyTable(payload.records || []);
+  $('downloadAnalytics').hidden = !(payload.records || []).length;
+}
+
+async function refreshConfirmedAnalytics({ quiet = false } = {}) {
   const status = $('analyticsStatus');
   const button = $('runAnalytics');
-  const selectedModels = [...document.querySelectorAll('input[name="analyticsModel"]:checked')].map((input) => input.value);
-  const start = $('analyticsStart').value;
-  const end = $('analyticsEnd').value;
-  const topK = Number($('analyticsTopK').value);
-  if (!selectedModels.length) throw new Error('Select at least one model.');
-  if (!start || !end || start > end) throw new Error('Choose a valid start and end date.');
-  const days = inclusiveDays(start, end);
-  if (days < 30 || days > 366) throw new Error('Chart analysis ranges must contain 30 to 366 calendar days.');
-  const source = sourceData[0];
-  if (source?.first_date && start < source.first_date) throw new Error(`The GitHub feed starts on ${source.first_date}.`);
-  if (source?.last_date && end > source.last_date) throw new Error(`Settled chart data ends on ${source.last_date}.`);
-  if (!Number.isInteger(topK) || topK < 1 || topK > 20) throw new Error('Ranking size must be between 1 and 20.');
+  const forecasts = loadConfirmedForecasts();
   status.classList.remove('error');
-  button.disabled = true;
-  setConnection('Computing');
-  const envelopes = [];
+  if (!forecasts.length) {
+    latestConfirmedPayload = null;
+    latestAnalytics = null;
+    $('analyticsOutput').hidden = false;
+    $('downloadAnalytics').hidden = true;
+    $('analyticsSummary').innerHTML = '';
+    $('analyticsTable').innerHTML = '<div class="empty"><strong>No confirmed forecasts yet</strong><p>Only dates confirmed on the forecast results page will appear here.</p></div>';
+    renderConfirmedDailyTable([]);
+    renderLineChart('hitsChart', [], 'hits');
+    renderLineChart('roiChart', [], 'cumulative_roi', true);
+    $('analyticsPeriodLabel').textContent = 'No confirmed dates';
+    status.textContent = 'Run and confirm a prospective Top-3 forecast to begin the journal.';
+    return null;
+  }
+  if (button) button.disabled = true;
+  if (!quiet) setConnection('Settling confirmations');
+  status.textContent = 'Checking confirmed forecasts against the live draw...';
   try {
-    for (let index = 0; index < selectedModels.length; index += 1) {
-      const model = selectedModels[index];
-      status.textContent = `Running ${labels[model] || model} (${index + 1} of ${selectedModels.length})...`;
-      let payload;
-      if (model === 'poisson_prize_90d') {
-        payload = await fetchPrizeRange({
-          source: 'live', model, top_k: topK, test_days: 90,
-          target_date: start, target_end_date: end, source_revision: sourceRevision,
-        }, (batch, total) => {
-          status.textContent = `Running ${labels[model]} · batch ${batch} of ${total}...`;
-        });
-      } else {
-        payload = await postForecast({
-          source: 'live', model, top_k: topK, test_days: days,
-          target_date: addDays(end, 1), target_end_date: null,
-          source_revision: sourceRevision,
-        });
-      }
-      envelopes.push(payload.analytics);
-    }
-    const analytics = mergeAnalytics(envelopes, selectedModels);
-    analytics.models = analytics.models.map((model) => summarizeSeries({
-      ...model, series: model.series.filter((row) => row.date >= start && row.date <= end),
-    }));
-    const missing = selectedModels.filter((modelId) => !analytics.models.some((model) => model.model_id === modelId));
-    if (missing.length) throw new Error(`No settled chart data returned for: ${missing.map((id) => labels[id] || id).join(', ')}.`);
-    const dates = analytics.models.flatMap((model) => model.series.map((row) => row.date)).sort();
-    analytics.period = { start_date: dates[0] || null, end_date: dates.at(-1) || null };
-    renderAnalytics(analytics);
-    runs.unshift({
-      date: new Date().toLocaleString(), model: 'analytics', target: `${start} to ${end}`,
-      numbers: `${selectedModels.length} model chart`, source: 'Live GitHub feed',
-    });
-    runs = runs.slice(0, 20);
-    renderHistory();
-    status.textContent = `Analysis complete: ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'} across ${days} days.`;
-    setConnection('API ready');
+    const payload = await postJson('/api/confirmed/settle', { source: 'live', forecasts });
+    renderConfirmedAnalytics(payload);
+    status.textContent = `${payload.analytics.settled_count} settled · ${payload.analytics.pending_count} pending · ${payload.analytics.confirmed_count} confirmed.`;
+    if (!quiet) setConnection('API ready');
+    return payload;
   } finally {
-    button.disabled = false;
+    if (button) button.disabled = false;
   }
 }
 
@@ -622,26 +716,29 @@ function downloadCsv(payload) {
 }
 
 function downloadAnalyticsCsv() {
-  if (!latestAnalytics) return;
-  const headers = ['schema_version', 'model_id', 'model_name', 'date', 'hits', 'hit', 'precision_at_k', 'recall_at_k', 'selections', 'paid_occurrences', 'stake', 'receipts', 'profit', 'roi', 'cumulative_profit', 'cumulative_roi', 'drawdown'];
-  const rows = [headers];
-  latestAnalytics.models.forEach((model) => model.series.forEach((row) => {
-    rows.push(headers.map((header) => {
-      if (header === 'schema_version') return latestAnalytics.schema_version;
-      if (header === 'model_id') return model.model_id;
-      if (header === 'model_name') return model.model_name;
-      return row[header];
-    }));
-  }));
+  if (!latestConfirmedPayload) return;
+  const headers = ['confirmation_id', 'confirmed_at_utc', 'target_date', 'status', 'numbers', 'matching_numbers', 'hits', 'paid_occurrences', 'stake', 'receipts', 'profit', 'roi'];
+  const rows = [headers, ...latestConfirmedPayload.records.map((record) => headers.map((header) => {
+    if (header === 'numbers') return record.numbers.join(' ');
+    if (header === 'matching_numbers') return (record.matching_numbers || []).map((item) => `${item.number}x${item.count}`).join(' ');
+    if (header === 'roi') return record.status === 'settled' && record.stake ? record.profit / record.stake : '';
+    return record[header] ?? '';
+  }))];
   const csv = rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  link.download = `xsmb_analysis_${latestAnalytics.period.start_date}_${latestAnalytics.period.end_date}.csv`;
+  link.download = 'xsmb_confirmed_top3_forecasts.csv';
   link.click();
   URL.revokeObjectURL(link.href);
 }
 
-document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => setPage(button.dataset.view)));
+document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
+  setPage(button.dataset.view);
+  if (button.dataset.view === 'analytics') refreshConfirmedAnalytics().catch((error) => {
+    $('analyticsStatus').textContent = error.message;
+    $('analyticsStatus').classList.add('error');
+  });
+}));
 document.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => setPage(button.dataset.go)));
 $('target').addEventListener('input', () => { $('targetEnd').min = $('target').value; });
 $('setupTarget').addEventListener('input', () => { $('setupTargetEnd').min = $('setupTarget').value; });
@@ -653,17 +750,15 @@ $('setupTarget').addEventListener('input', () => { $('setupTargetEnd').min = $('
   syncRangeControls();
 }));
 $('reset').addEventListener('click', () => {
-  $('model').value = 'baseline';
-  $('topk').value = '5';
-  $('days').value = '30';
+  $('model').value = 'poisson_prize_90d';
+  $('topk').value = '3';
+  $('days').value = '90';
   $('targetEnd').value = '';
   syncRangeControls();
   if (sourceData[0]) updateSource(sourceData[0]);
   $('status').textContent = 'Form reset.';
 });
 $('historyFilter').addEventListener('change', renderHistory);
-$('analyticsPeriod').addEventListener('change', updateAnalyticsDates);
-$('analyticsModelFilter').addEventListener('change', (event) => renderAnalyticsDailyTable(event.target.value));
 $('downloadAnalytics').addEventListener('click', downloadAnalyticsCsv);
 $('refreshSource').addEventListener('click', () => {
   refreshGithubSource().catch(() => {});
@@ -693,7 +788,7 @@ $('setupForm').addEventListener('submit', async (event) => {
 });
 $('analyticsForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  try { await runAnalytics(); }
+  try { await refreshConfirmedAnalytics(); }
   catch (error) {
     $('analyticsStatus').textContent = error.message;
     $('analyticsStatus').classList.add('error');

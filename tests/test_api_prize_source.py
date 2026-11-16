@@ -219,6 +219,104 @@ class ApiPrizeSourceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("latest forecastable date", response.get_json()["error"])
 
+    def confirm_top3(self):
+        with patch.object(
+            XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source,
+        ):
+            response = api.app.test_client().post("/api/confirmed/confirm", json={
+                "source": "live",
+                "model_id": "poisson_prize_90d",
+                "top_k": 3,
+                "target_date": "2026-04-16",
+                "data_through_date": "2026-04-15",
+                "numbers": ["01", "02", "03"],
+            })
+        self.assertEqual(response.status_code, 200, response.get_json())
+        return response.get_json()["record"]
+
+    def test_confirmation_accepts_only_prospective_top3(self):
+        record = self.confirm_top3()
+        self.assertEqual(record["target_date"], "2026-04-16")
+        self.assertEqual(record["numbers"], ["01", "02", "03"])
+        self.assertEqual(record["record_version"], 1)
+        self.assertEqual(len(record["confirmation_id"]), 64)
+
+        invalid = [
+            {
+                "source": "live", "model_id": "poisson_prize_90d", "top_k": 5,
+                "target_date": "2026-04-16", "data_through_date": "2026-04-15",
+                "numbers": ["01", "02", "03", "04", "05"],
+            },
+            {
+                "source": "live", "model_id": "poisson_prize_90d", "top_k": 3,
+                "target_date": "2026-04-15", "data_through_date": "2026-04-14",
+                "numbers": ["01", "02", "03"],
+            },
+        ]
+        for body in invalid:
+            with self.subTest(body=body), patch.object(
+                XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source,
+            ):
+                response = api.app.test_client().post("/api/confirmed/confirm", json=body)
+            self.assertEqual(response.status_code, 400, response.get_json())
+
+    def test_confirmed_settlement_scores_only_saved_forecast(self):
+        record = self.confirm_top3()
+        result = {"date": "2026-04-16", **{name: "99" for name in PRIZE_WIDTHS}}
+        result["special"] = "1"
+        extended = pd.concat([self.raw, pd.DataFrame([result])], ignore_index=True)
+
+        def load_extended(loader):
+            return extended.copy()
+
+        with patch.object(
+            XSMBDataLoader, "load_data", autospec=True, side_effect=load_extended,
+        ):
+            response = api.app.test_client().post("/api/confirmed/settle", json={
+                "source": "live", "forecasts": [record],
+            })
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        payload = response.get_json()
+        self.assertEqual(payload["analytics"]["basis"], "user_confirmed_top3_forecasts")
+        self.assertEqual(payload["analytics"]["confirmed_count"], 1)
+        self.assertEqual(payload["analytics"]["settled_count"], 1)
+        settled = payload["records"][0]
+        self.assertEqual(settled["status"], "settled")
+        self.assertEqual(settled["hits"], 1)
+        self.assertEqual(settled["paid_occurrences"], 1)
+        self.assertEqual(settled["stake"], 81_000)
+        self.assertEqual(settled["profit"], 18_000)
+        model = payload["analytics"]["models"][0]
+        self.assertEqual(model["model_id"], "poisson_prize_90d")
+        self.assertEqual(model["summary"]["days"], 1)
+        self.assertEqual(model["summary"]["hit_rate"], 1.0)
+        self.assertEqual(model["series"][0]["numbers"], ["01", "02", "03"])
+
+    def test_confirmed_settlement_keeps_unavailable_draw_pending(self):
+        record = self.confirm_top3()
+        with patch.object(
+            XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source,
+        ):
+            response = api.app.test_client().post("/api/confirmed/settle", json={
+                "source": "live", "forecasts": [record],
+            })
+        self.assertEqual(response.status_code, 200, response.get_json())
+        payload = response.get_json()
+        self.assertEqual(payload["records"][0]["status"], "pending")
+        self.assertEqual(payload["analytics"]["settled_count"], 0)
+        self.assertEqual(payload["analytics"]["pending_count"], 1)
+        self.assertEqual(payload["analytics"]["models"], [])
+
+    def test_confirmed_settlement_rejects_changed_numbers(self):
+        record = self.confirm_top3()
+        record["numbers"] = ["04", "05", "06"]
+        response = api.app.test_client().post("/api/confirmed/settle", json={
+            "source": "live", "forecasts": [record],
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("integrity", response.get_json()["error"])
+
     def test_live_raw_feed_still_produces_frequency_matrices(self):
         with patch.object(XSMBDataLoader, "load_data", autospec=True, side_effect=self.load_source):
             frequency, binary = api._load_matrices("live")

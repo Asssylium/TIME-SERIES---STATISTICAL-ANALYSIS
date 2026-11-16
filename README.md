@@ -139,8 +139,9 @@ vercel
 vercel --prod
 ```
 
-The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`, and
-`POST /api/forecast` for the browser UI or other clients.
+The deployment uses `vercel.json` and exposes `/api/health`, `/api/sources`,
+`POST /api/forecast`, `POST /api/confirmed/confirm`, and `POST
+/api/confirmed/settle` for the browser UI or other clients.
 
 The dashboard's **Refresh GitHub data** action calls `POST
 /api/sources/refresh`. It pulls and validates a new source revision, updates all
@@ -152,8 +153,23 @@ Every settled forecast response includes an `analytics` object using schema
 version `1.0`. Its `models[].series[]` rows use stable names for `date`, `hits`,
 `paid_occurrences`, `stake`, `receipts`, `profit`, `roi`, `cumulative_profit`,
 `cumulative_roi`, and `drawdown`. Rates are decimal ratios and currency values
-are VND. The Chart analysis page can run selected models over 30 days, 90 days,
-12 months, or a custom 30–366 day range and can export these rows as CSV.
+are VND.
+
+The browser's Chart page is a prospective **confirmed Top-3** journal. After a
+single unresolved Poisson Prize 90d forecast is run, checking **Confirm this
+Top-3 forecast** asks the API to verify that the target draw is still absent and
+then timestamps the three numbers. The immutable confirmation record is stored
+in browser `localStorage`. On later visits, `POST /api/confirmed/settle` compares
+only those saved confirmations with available real draws. Unconfirmed dates are
+not treated as bets or losses and are excluded from hit rate, stake, profit, and
+ROI. Pending confirmed dates also remain outside performance totals until their
+draw is available.
+
+This browser journal is local to one browser profile and is not an externally
+notarized record. Clearing site data or using another browser removes access to
+the saved confirmations. Export the confirmation ledger CSV from the Chart page
+when a portable copy is needed. The separate SQLite paper journal remains the
+stronger append-only local audit workflow.
 
 `poisson_prize_90d` accepts a historical `target_date` and uses the latest
 completed draw strictly before that target. Missing calendar dates remain

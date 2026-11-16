@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import date as calendar_date, datetime, timezone
 from functools import lru_cache
+import hashlib
+import json
 from pathlib import Path
 import sys
 from typing import Any
@@ -39,6 +41,9 @@ ALLOWED_MODELS = ("baseline", "lightgbm", "regularized", "poisson", "poisson_pri
 MAX_PRIZE_RANGE_DAYS = 31
 PRIZE_POISSON_HISTORY_DAYS = 90
 PRIZE_POISSON_N_ESTIMATORS = 100
+CONFIRMED_MODEL = "poisson_prize_90d"
+CONFIRMED_TOP_K = 3
+MAX_CONFIRMED_FORECASTS = 366
 
 app = Flask(__name__)
 
@@ -113,6 +118,161 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (pd.Timestamp, calendar_date)):
         return value.isoformat()
     return value
+
+
+def _confirmation_digest(record: dict[str, Any]) -> str:
+    """Detect accidental edits to a browser-stored confirmation record."""
+    unsigned = {key: value for key, value in record.items() if key != "confirmation_id"}
+    canonical = json.dumps(
+        unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _parse_iso_date(value: Any, field: str) -> pd.Timestamp:
+    try:
+        parsed = calendar_date.fromisoformat(str(value))
+        if parsed.isoformat() != str(value):
+            raise ValueError
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must use YYYY-MM-DD format.") from exc
+    return pd.Timestamp(parsed)
+
+
+def _confirmed_numbers(value: Any) -> list[str]:
+    if not isinstance(value, list) or len(value) != CONFIRMED_TOP_K:
+        raise ValueError("A confirmed forecast must contain exactly three numbers.")
+    numbers = [str(number) for number in value]
+    if any(len(number) != 2 or not number.isdigit() for number in numbers):
+        raise ValueError("Confirmed numbers must be two-digit strings from 00 to 99.")
+    if len(set(numbers)) != CONFIRMED_TOP_K:
+        raise ValueError("Confirmed forecast numbers must be distinct.")
+    return numbers
+
+
+def _validated_confirmation(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("Each confirmed forecast must be an object.")
+    if value.get("record_version") != 1:
+        raise ValueError("Unsupported confirmed forecast record version.")
+    if value.get("source") != "live" or value.get("model_id") != CONFIRMED_MODEL:
+        raise ValueError("Only live Poisson Prize 90d confirmations are supported.")
+    if value.get("top_k") != CONFIRMED_TOP_K:
+        raise ValueError("Confirmed forecast research is fixed to Top-3.")
+    target = _parse_iso_date(value.get("target_date"), "target_date")
+    cutoff = _parse_iso_date(value.get("data_through_date"), "data_through_date")
+    if cutoff + pd.Timedelta(days=1) != target:
+        raise ValueError("A confirmed forecast must use the immediately preceding draw.")
+    numbers = _confirmed_numbers(value.get("numbers"))
+    confirmed_at = value.get("confirmed_at_utc")
+    if not isinstance(confirmed_at, str) or not confirmed_at or len(confirmed_at) > 64:
+        raise ValueError("confirmed_at_utc is invalid.")
+    record = {
+        "record_version": 1,
+        "source": "live",
+        "model_id": CONFIRMED_MODEL,
+        "target_date": target.strftime("%Y-%m-%d"),
+        "data_through_date": cutoff.strftime("%Y-%m-%d"),
+        "top_k": CONFIRMED_TOP_K,
+        "numbers": numbers,
+        "confirmed_at_utc": confirmed_at,
+    }
+    expected = _confirmation_digest(record)
+    if value.get("confirmation_id") != expected:
+        raise ValueError("Confirmed forecast integrity check failed.")
+    return {**record, "confirmation_id": expected}
+
+
+def _confirmed_analytics_payload(
+    records: list[dict[str, Any]], frequency: pd.DataFrame,
+) -> dict[str, Any]:
+    """Settle only explicit browser confirmations and build chart-compatible rows."""
+    latest = frequency.index[-1]
+    status_rows: list[dict[str, Any]] = []
+    settled_records: list[dict[str, Any]] = []
+    predictions: list[list[str]] = []
+    targets: list[pd.Timestamp] = []
+    actual_rows: list[np.ndarray] = []
+
+    for record in sorted(records, key=lambda item: item["target_date"]):
+        target = pd.Timestamp(record["target_date"])
+        status = "settled" if target in frequency.index else (
+            "pending" if target > latest else "outcome_unavailable"
+        )
+        row: dict[str, Any] = {**record, "status": status}
+        if status == "settled":
+            actual = frequency.loc[target].to_numpy(dtype=np.int64)
+            counts = [int(actual[int(number)]) for number in record["numbers"]]
+            occurrences = int(sum(counts))
+            receipts = occurrences * 99_000
+            row.update({
+                "matching_numbers": [
+                    {"number": number, "count": count}
+                    for number, count in zip(record["numbers"], counts, strict=True)
+                    if count > 0
+                ],
+                "hits": int(sum(count > 0 for count in counts)),
+                "paid_occurrences": occurrences,
+                "stake": CONFIRMED_TOP_K * 27_000,
+                "receipts": receipts,
+                "profit": receipts - CONFIRMED_TOP_K * 27_000,
+            })
+            settled_records.append(record)
+            predictions.append(record["numbers"])
+            targets.append(target)
+            actual_rows.append(actual)
+        status_rows.append(row)
+
+    if settled_records:
+        target_index = pd.DatetimeIndex(targets)
+        truth = [
+            np.repeat(np.arange(100), actual).tolist()
+            for actual in actual_rows
+        ]
+        evaluation = evaluate_test_set(
+            truth, predictions, k=CONFIRMED_TOP_K, dates=target_index,
+        )
+        selected = np.zeros((len(settled_records), 100), dtype=bool)
+        for row_index, numbers in enumerate(predictions):
+            selected[row_index, [int(number) for number in numbers]] = True
+        payout = evaluate_payouts(
+            np.stack(actual_rows), selected, payout_mode="per_occurrence",
+            stake=27_000, gross_payout=99_000,
+        )
+        analytics = build_analytics_payload(
+            {CONFIRMED_MODEL: evaluation}, {CONFIRMED_MODEL: payout},
+        )
+        series_by_date = {
+            item["date"]: item for item in analytics["models"][0]["series"]
+        }
+        for row in status_rows:
+            series = series_by_date.get(row["target_date"])
+            if series is not None:
+                series.update({
+                    "confirmed_at_utc": row["confirmed_at_utc"],
+                    "numbers": row["numbers"],
+                    "matching_numbers": row["matching_numbers"],
+                    "confirmation_id": row["confirmation_id"],
+                })
+    else:
+        analytics = build_analytics_payload({}, {})
+
+    analytics.update({
+        "basis": "user_confirmed_top3_forecasts",
+        "confirmed_count": len(records),
+        "settled_count": len(settled_records),
+        "pending_count": sum(row["status"] == "pending" for row in status_rows),
+        "unavailable_count": sum(
+            row["status"] == "outcome_unavailable" for row in status_rows
+        ),
+    })
+    return {
+        "source": "live",
+        "latest_draw_date": latest.strftime("%Y-%m-%d"),
+        "records": status_rows,
+        "analytics": analytics,
+    }
 
 
 def _forecast_payload(result: Any, source_id: str, model: str, top_k: int, test_days: int) -> dict[str, Any]:
@@ -311,6 +471,76 @@ def refresh_source() -> Any:
         return jsonify({"error": "Could not refresh and validate the GitHub data feed."}), 502
 
 
+@app.post("/api/confirmed/confirm")
+def confirm_forecast() -> Any:
+    """Timestamp one prospective Poisson Prize Top-3 forecast for browser storage."""
+    body = request.get_json(silent=True) or {}
+    try:
+        if body.get("source", "live") != "live" or body.get("model_id") != CONFIRMED_MODEL:
+            raise ValueError("Only live Poisson Prize 90d confirmations are supported.")
+        if body.get("top_k") != CONFIRMED_TOP_K:
+            raise ValueError("Confirmed forecast research is fixed to Top-3.")
+        target = _parse_iso_date(body.get("target_date"), "target_date")
+        cutoff = _parse_iso_date(body.get("data_through_date"), "data_through_date")
+        numbers = _confirmed_numbers(body.get("numbers"))
+
+        revision = datetime.now(timezone.utc).isoformat()
+        frequency, _ = _load_matrices("live", revision)
+        latest = frequency.index[-1]
+        if cutoff != latest or target != latest + pd.Timedelta(days=1):
+            raise ValueError(
+                f"Confirmation is allowed only for the next unresolved draw "
+                f"{latest + pd.Timedelta(days=1):%Y-%m-%d}."
+            )
+        record = {
+            "record_version": 1,
+            "source": "live",
+            "model_id": CONFIRMED_MODEL,
+            "target_date": target.strftime("%Y-%m-%d"),
+            "data_through_date": cutoff.strftime("%Y-%m-%d"),
+            "top_k": CONFIRMED_TOP_K,
+            "numbers": numbers,
+            "confirmed_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+        return jsonify({
+            "record": {**record, "confirmation_id": _confirmation_digest(record)},
+            "storage": "browser_local",
+        })
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        app.logger.exception("Forecast confirmation failed")
+        return jsonify({"error": "Could not confirm this forecast against the live source."}), 500
+
+
+@app.post("/api/confirmed/settle")
+def settle_confirmed_forecasts() -> Any:
+    """Score only previously confirmed Top-3 records whose draws are available."""
+    body = request.get_json(silent=True) or {}
+    values = body.get("forecasts", [])
+    try:
+        if body.get("source", "live") != "live":
+            raise ValueError("Only the live GitHub source is supported.")
+        if not isinstance(values, list):
+            raise ValueError("forecasts must be a list.")
+        if len(values) > MAX_CONFIRMED_FORECASTS:
+            raise ValueError(
+                f"At most {MAX_CONFIRMED_FORECASTS} confirmed forecasts may be settled at once."
+            )
+        records = [_validated_confirmation(value) for value in values]
+        dates = [record["target_date"] for record in records]
+        if len(set(dates)) != len(dates):
+            raise ValueError("Only one confirmed forecast is allowed per target date.")
+        revision = datetime.now(timezone.utc).isoformat()
+        frequency, _ = _load_matrices("live", revision)
+        return jsonify(_json_safe(_confirmed_analytics_payload(records, frequency)))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        app.logger.exception("Confirmed forecast settlement failed")
+        return jsonify({"error": "Could not settle confirmed forecasts."}), 500
+
+
 @app.post("/api/forecast")
 def forecast() -> Any:
     body = request.get_json(silent=True) or {}
@@ -378,6 +608,8 @@ def api_index() -> Any:
         "health": "/api/health",
         "sources": "/api/sources",
         "refresh_source": "/api/sources/refresh",
+        "confirm_forecast": "/api/confirmed/confirm",
+        "settle_confirmed_forecasts": "/api/confirmed/settle",
     })
 
 

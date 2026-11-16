@@ -63,18 +63,18 @@ class PipelineTests(unittest.TestCase):
             self.assertGreater(history.index.min(), date - pd.Timedelta(days=30))
         for name, evaluation in result.evaluations.items():
             self.assertEqual(evaluation.summary["n_days"], 5)
-            self.assertEqual(evaluation.summary["k"], 5)
+            self.assertEqual(evaluation.summary["k"], 3)
             self.assertTrue(evaluation.per_day.n_actual.eq(27).all())
             self.assertTrue(evaluation.per_day.index.equals(result.test_feature_dates + pd.Timedelta(days=1)))
-            self.assertEqual(len(result.forecasts[name]), 5)
-            self.assertEqual(len({number for number, _ in result.forecasts[name]}), 5)
+            self.assertEqual(len(result.forecasts[name]), 3)
+            self.assertEqual(len({number for number, _ in result.forecasts[name]}), 3)
         self.assertTrue(all(0 <= score <= 1 for _, score in result.forecasts["lightgbm"]))
         self.assertIn("30-day count", output.getvalue())
         self.assertIn("P(at least one appearance)", output.getvalue())
         self.assertIn("uncalibrated", output.getvalue())
         self.assertIn("fitted once before the holdout", output.getvalue())
         self.assertEqual(set(result.payouts), {"baseline", "lightgbm"})
-        self.assertEqual(output.getvalue().count("TOP-5 EVALUATION REPORT"), 2)
+        self.assertEqual(output.getvalue().count("TOP-3 EVALUATION REPORT"), 2)
 
     def test_pipeline_payout_counts_repeated_occurrences(self) -> None:
         raw = self.raw.copy()
@@ -237,7 +237,7 @@ class PipelineTests(unittest.TestCase):
         with patch("main.run_pipeline") as run:
             self.assertEqual(main([]), 0)
             self.assertEqual(run.call_args.kwargs["model"], "lightgbm")
-            self.assertEqual(run.call_args.kwargs["top_k"], 5)
+            self.assertEqual(run.call_args.kwargs["top_k"], 3)
             self.assertIsNone(run.call_args.kwargs["forecast_date"])
             self.assertEqual(main(["--model", "both", "--test-days", "10", "--inspect"]), 0)
             self.assertEqual(run.call_args.kwargs["test_days"], 10)

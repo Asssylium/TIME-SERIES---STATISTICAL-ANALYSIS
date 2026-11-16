@@ -2,7 +2,7 @@
 
 Examples:
     python main.py
-    python main.py --model both --test-days 90 --top-k 5
+    python main.py --model both --test-days 90 --top-k 3
     python main.py --model all --top-k 3
     python main.py --model poisson --top-k 3
     python main.py --model regularized --top-k 5 --forecast-date 2026-10-30
@@ -55,7 +55,7 @@ def run_pipeline(
     url: str = DEFAULT_XSMB_URL,
     *,
     model: str = "lightgbm",
-    top_k: int = 5,
+    top_k: int = 3,
     test_days: int = 90,
     n_splits: int = 5,
     gap: int = 1,
@@ -321,7 +321,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--url", default=DEFAULT_XSMB_URL, help="CSV URL (defaults to the XSMB source).")
     parser.add_argument("--model", choices=["baseline", "lightgbm", "regularized", "poisson", "both", "all"], default="lightgbm",
                         help="'poisson' ranks expected repeat-inclusive counts; 'all' runs baseline, LightGBM, regularized, and Poisson.")
-    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument("--forecast-date", default=None, metavar="YYYY-MM-DD",
                         help="Forecast this calendar day using only earlier draws; requires its preceding day's result. Default: last observed day + 1.")
     parser.add_argument("--test-days", type=int, default=90, help="Labeled feature dates per time split.")
