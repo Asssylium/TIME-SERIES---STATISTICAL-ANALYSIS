@@ -155,15 +155,22 @@ version `1.0`. Its `models[].series[]` rows use stable names for `date`, `hits`,
 `cumulative_roi`, and `drawdown`. Rates are decimal ratios and currency values
 are VND.
 
-The browser's Chart page is a prospective **confirmed Top-3** journal. After a
-single unresolved Poisson Prize 90d forecast is run, checking **Confirm this
-Top-3 forecast** asks the API to verify that the target draw is still absent and
-then timestamps the three numbers. The immutable confirmation record is stored
-in browser `localStorage`. On later visits, `POST /api/confirmed/settle` compares
-only those saved confirmations with available real draws. Unconfirmed dates are
-not treated as bets or losses and are excluded from hit rate, stake, profit, and
+The browser's Chart page has two explicitly separated Top-3 views. **Confirmed
+forecasts** is the default prospective journal. After a single unresolved
+Poisson Prize 90d forecast is run, checking **Confirm this Top-3 forecast** asks
+the API to verify that the target draw is still absent and then timestamps the
+three numbers. The immutable confirmation record is stored in browser
+`localStorage`. On later visits, `POST /api/confirmed/settle` compares only those
+saved confirmations with available real draws. Unconfirmed dates are not
+treated as bets or losses and are excluded from hit rate, stake, profit, and
 ROI. Pending confirmed dates also remain outside performance totals until their
 draw is available.
+
+Switch the Chart basis to **Assume every draw date** to run the historical
+walk-forward view. It treats every settled draw date in the selected period as
+an assumed forecast and remains fixed to Top-3. Its controls, results, model
+filter, and CSV export are independent from the confirmed journal so historical
+assumptions are never presented as user-confirmed performance.
 
 This browser journal is local to one browser profile and is not an externally
 notarized record. Clearing site data or using another browser removes access to

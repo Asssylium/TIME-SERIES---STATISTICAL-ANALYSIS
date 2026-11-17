@@ -23,6 +23,7 @@ let runs = [];
 let latestPayload = null;
 let latestAnalytics = null;
 let latestConfirmedPayload = null;
+let latestAssumptionAnalytics = null;
 let chartViewport = { start: 0, end: null };
 
 for (const id of ['model', 'setupModel']) {
@@ -59,6 +60,25 @@ function addDays(isoDate, amount) {
   const date = new Date(`${isoDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + amount);
   return isoDay(date);
+}
+function inclusiveDays(start, end) {
+  return Math.floor((new Date(`${end}T00:00:00Z`) - new Date(`${start}T00:00:00Z`)) / 86400000) + 1;
+}
+function currentAnalyticsMode() { return $('analyticsMode')?.value || 'confirmed'; }
+
+function updateAnalyticsDates() {
+  const source = sourceData[0];
+  if (!source?.last_date || !$('analyticsPeriod')) return;
+  const period = $('analyticsPeriod').value;
+  const length = period === 'custom' ? null : Number(period);
+  for (const id of ['analyticsStart', 'analyticsEnd']) {
+    $(id).min = source.first_date || '';
+    $(id).max = source.last_date;
+  }
+  if (length) {
+    $('analyticsEnd').value = source.last_date;
+    $('analyticsStart').value = addDays(source.last_date, -(length - 1));
+  }
 }
 
 function loadConfirmedForecasts() {
@@ -101,6 +121,7 @@ function updateSource(item) {
   $('setupTargetEnd').min = target;
   $('setupDataCheck').textContent = item.error || `${Number(item.days || 0).toLocaleString()} GitHub rows passed validation.`;
   $('setupDateCheck').textContent = target ? `Next forecast date is ${target}.` : 'The GitHub feed is unavailable.';
+  updateAnalyticsDates();
 }
 
 function fillSources() {
@@ -125,10 +146,12 @@ async function loadSources() {
   fillSources();
   $('status').textContent = 'Ready to forecast.';
   setConnection('API ready');
-  await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
-    $('analyticsStatus').textContent = error.message;
-    $('analyticsStatus').classList.add('error');
-  });
+  if (currentAnalyticsMode() === 'confirmed') {
+    await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
+      $('analyticsStatus').textContent = error.message;
+      $('analyticsStatus').classList.add('error');
+    });
+  }
 }
 
 async function refreshGithubSource() {
@@ -154,10 +177,14 @@ async function refreshGithubSource() {
     $('dataStatus').textContent = message;
     $('analyticsStatus').textContent = message;
     setConnection('GitHub refreshed');
-    await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
-      $('analyticsStatus').textContent = error.message;
-      $('analyticsStatus').classList.add('error');
-    });
+    if (currentAnalyticsMode() === 'confirmed') {
+      await refreshConfirmedAnalytics({ quiet: true }).catch((error) => {
+        $('analyticsStatus').textContent = error.message;
+        $('analyticsStatus').classList.add('error');
+      });
+    } else {
+      $('analyticsStatus').textContent = `${message} Rerun the assumption chart to include any source changes.`;
+    }
   } catch (error) {
     $('status').textContent = error.message;
     $('status').classList.add('error');
@@ -267,7 +294,7 @@ function renderForecastConfirmation(payload) {
     try {
       await confirmLatestForecast(payload);
       renderForecastConfirmation(payload);
-      await refreshConfirmedAnalytics({ quiet: true });
+      if (currentAnalyticsMode() === 'confirmed') await refreshConfirmedAnalytics({ quiet: true });
     } catch (error) {
       event.target.checked = false;
       event.target.disabled = false;
@@ -632,8 +659,154 @@ function renderAnalytics(analytics) {
   $('analyticsTable').innerHTML = `<table><thead><tr><th>Model</th><th>Days</th><th>Hit rate</th><th>Total hits</th><th>Mean hits/day</th><th>ROI</th><th>Profit</th><th>Max drawdown</th></tr></thead><tbody>${models.map((model) => `<tr><td><strong>${esc(model.model_name)}</strong></td><td>${model.summary.days}</td><td>${(Number(model.summary.hit_rate) * 100).toFixed(1)}%</td><td>${model.summary.total_hits}</td><td>${Number(model.summary.mean_hits).toFixed(2)}</td><td>${(Number(model.summary.roi) * 100).toFixed(1)}%</td><td class="${model.summary.total_profit >= 0 ? 'profit-positive' : 'profit-negative'}">${formatMoney(model.summary.total_profit)}</td><td>${formatMoney(model.summary.max_drawdown)}</td></tr>`).join('')}</tbody></table>`;
   const filter = $('analyticsModelFilter');
   if (filter?.tagName === 'SELECT') {
+    filter.disabled = false;
     filter.innerHTML = models.map((model) => `<option value="${esc(model.model_id)}">${esc(model.model_name)}</option>`).join('');
     if (models.length) renderAnalyticsDailyTable(models[0].model_id);
+  }
+}
+
+function setAnalyticsModeLabels(mode) {
+  const confirmed = mode === 'confirmed';
+  $('analyticsPageKicker').textContent = confirmed ? 'CONFIRMED PERFORMANCE' : 'ASSUMPTION BACKTEST';
+  $('analyticsPageTitle').textContent = confirmed ? 'Confirmed forecast charts' : 'Assumption charts';
+  $('analyticsPageLede').textContent = confirmed
+    ? 'Charts include only Top-3 forecasts you explicitly confirmed before their draw became available.'
+    : 'Charts assume a Top-3 forecast was used on every settled draw date in the selected historical period.';
+  $('analyticsPanelTitle').textContent = confirmed ? 'Confirmed forecast journal' : 'Assumption configuration';
+  $('analyticsPanelDescription').textContent = confirmed
+    ? 'Refresh the live source to settle saved confirmations whose real draw is now available.'
+    : 'Run a historical walk-forward backtest with the same Top-3 rule on every eligible date.';
+  $('analyticsModeBadge').textContent = confirmed ? 'User checked · Top-3' : 'Every draw date · Top-3';
+  $('analyticsResultsTitle').textContent = confirmed ? 'Confirmed results' : 'Assumption results';
+  $('analyticsResultsDescription').textContent = confirmed
+    ? 'Totals include settled confirmed dates only.'
+    : 'Totals assume every settled draw date in the selected period was played.';
+  $('analyticsDailyTitle').textContent = confirmed ? 'Confirmation ledger' : 'Daily assumption data';
+  $('analyticsDailyDescription').textContent = confirmed
+    ? 'Pending dates have no stake or performance impact until the real draw is available.'
+    : 'Filter a model to inspect the daily walk-forward inputs behind the assumption chart.';
+}
+
+function renderEmptyConfirmedAnalytics() {
+  latestAnalytics = null;
+  chartViewport = { start: 0, end: null };
+  $('analyticsOutput').hidden = false;
+  $('downloadAnalytics').hidden = true;
+  $('analyticsSummary').innerHTML = '';
+  $('analyticsTable').innerHTML = '<div class="empty"><strong>No confirmed forecasts yet</strong><p>Only dates confirmed on the forecast results page will appear here.</p></div>';
+  renderConfirmedDailyTable([]);
+  renderLineChart('hitsChart', [], 'hits');
+  renderLineChart('roiChart', [], 'cumulative_roi', true);
+  $('analyticsPeriodLabel').textContent = 'No confirmed dates';
+  const filter = $('analyticsModelFilter');
+  filter.innerHTML = '<option>Poisson Prize 90d · Top-3</option>';
+  filter.disabled = true;
+}
+
+function renderAssumptionAnalytics(analytics) {
+  latestAssumptionAnalytics = analytics;
+  setAnalyticsModeLabels('assumption');
+  renderAnalytics(analytics);
+  $('analyticsModelFilter').disabled = false;
+  $('downloadAnalytics').hidden = false;
+}
+
+async function runAssumptionAnalytics() {
+  const status = $('analyticsStatus');
+  const button = $('runAnalytics');
+  const modeSelect = $('analyticsMode');
+  const selectedModels = [...document.querySelectorAll('input[name="analyticsModel"]:checked')].map((input) => input.value);
+  const start = $('analyticsStart').value;
+  const end = $('analyticsEnd').value;
+  const topK = Number($('analyticsTopK').value);
+  if (!selectedModels.length) throw new Error('Select at least one model.');
+  if (!start || !end || start > end) throw new Error('Choose a valid start and end date.');
+  const days = inclusiveDays(start, end);
+  if (days < 30 || days > 366) throw new Error('Assumption chart ranges must contain 30 to 366 calendar days.');
+  const source = sourceData[0];
+  if (source?.first_date && start < source.first_date) throw new Error(`The GitHub feed starts on ${source.first_date}.`);
+  if (source?.last_date && end > source.last_date) throw new Error(`Settled chart data ends on ${source.last_date}.`);
+  if (topK !== 3) throw new Error('Assumption research is fixed to Top-3.');
+  status.classList.remove('error');
+  button.disabled = true;
+  modeSelect.disabled = true;
+  setConnection('Computing');
+  const envelopes = [];
+  try {
+    for (let index = 0; index < selectedModels.length; index += 1) {
+      const model = selectedModels[index];
+      status.textContent = `Running ${labels[model] || model} (${index + 1} of ${selectedModels.length})...`;
+      let payload;
+      if (model === 'poisson_prize_90d') {
+        payload = await fetchPrizeRange({
+          source: 'live', model, top_k: 3, test_days: 90,
+          target_date: start, target_end_date: end, source_revision: sourceRevision,
+        }, (batch, total) => {
+          status.textContent = `Running ${labels[model]} · batch ${batch} of ${total}...`;
+        });
+      } else {
+        payload = await postForecast({
+          source: 'live', model, top_k: 3, test_days: days,
+          target_date: addDays(end, 1), target_end_date: null,
+          source_revision: sourceRevision,
+        });
+      }
+      envelopes.push(payload.analytics);
+    }
+    const analytics = mergeAnalytics(envelopes, selectedModels);
+    analytics.models = analytics.models.map((model) => summarizeSeries({
+      ...model, series: model.series.filter((row) => row.date >= start && row.date <= end),
+    }));
+    const missing = selectedModels.filter((modelId) => !analytics.models.some((model) => model.model_id === modelId));
+    if (missing.length) throw new Error(`No settled chart data returned for: ${missing.map((id) => labels[id] || id).join(', ')}.`);
+    const dates = analytics.models.flatMap((model) => model.series.map((row) => row.date)).sort();
+    analytics.period = { start_date: dates[0] || null, end_date: dates.at(-1) || null };
+    renderAssumptionAnalytics(analytics);
+    runs.unshift({
+      date: new Date().toLocaleString(), model: 'analytics', target: `${start} to ${end}`,
+      numbers: `${selectedModels.length} Top-3 assumption chart`, source: 'Live GitHub feed',
+    });
+    runs = runs.slice(0, 20);
+    renderHistory();
+    status.textContent = `Assumption analysis complete: ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'} across ${days} days.`;
+    setConnection('API ready');
+    return analytics;
+  } finally {
+    button.disabled = false;
+    modeSelect.disabled = false;
+  }
+}
+
+async function syncAnalyticsMode({ refresh = false } = {}) {
+  const mode = currentAnalyticsMode();
+  const confirmed = mode === 'confirmed';
+  setAnalyticsModeLabels(mode);
+  $('confirmedAnalyticsControls').hidden = !confirmed;
+  $('assumptionAnalyticsControls').hidden = confirmed;
+  $('runAnalytics').textContent = confirmed ? 'Refresh confirmed results' : 'Run assumption chart';
+  $('analyticsStatus').classList.remove('error');
+  if (confirmed) {
+    if (latestConfirmedPayload) {
+      renderConfirmedAnalytics(latestConfirmedPayload);
+      const analytics = latestConfirmedPayload.analytics;
+      $('analyticsStatus').textContent = `${analytics.settled_count} settled · ${analytics.pending_count} pending · ${analytics.confirmed_count} confirmed.`;
+    } else {
+      renderEmptyConfirmedAnalytics();
+      $('analyticsStatus').textContent = 'Run and confirm a prospective Top-3 forecast to begin the journal.';
+    }
+    if (refresh) await refreshConfirmedAnalytics();
+    return;
+  }
+  if (latestAssumptionAnalytics) {
+    renderAssumptionAnalytics(latestAssumptionAnalytics);
+    const modelCount = latestAssumptionAnalytics.models.length;
+    $('analyticsStatus').textContent = `Showing the saved Top-3 assumption result for ${modelCount} model${modelCount === 1 ? '' : 's'}.`;
+  } else {
+    latestAnalytics = null;
+    chartViewport = { start: 0, end: null };
+    $('analyticsOutput').hidden = true;
+    $('downloadAnalytics').hidden = true;
+    $('analyticsStatus').textContent = 'Choose a period and model, then run the Top-3 assumption chart.';
   }
 }
 
@@ -653,6 +826,7 @@ function renderConfirmedDailyTable(records) {
 
 function renderConfirmedAnalytics(payload) {
   latestConfirmedPayload = payload;
+  setAnalyticsModeLabels('confirmed');
   renderAnalytics(payload.analytics);
   const analytics = payload.analytics;
   const modelCards = $('analyticsSummary').innerHTML;
@@ -662,7 +836,9 @@ function renderConfirmedAnalytics(payload) {
   }
   $('analyticsPeriodLabel').textContent = analytics.period?.start_date
     ? `${analytics.period.start_date} to ${analytics.period.end_date}` : 'No settled dates';
-  $('analyticsModelFilter').textContent = 'Poisson Prize 90d · Top-3';
+  const filter = $('analyticsModelFilter');
+  filter.innerHTML = '<option>Poisson Prize 90d · Top-3</option>';
+  filter.disabled = true;
   renderConfirmedDailyTable(payload.records || []);
   $('downloadAnalytics').hidden = !(payload.records || []).length;
 }
@@ -671,29 +847,27 @@ async function refreshConfirmedAnalytics({ quiet = false } = {}) {
   const status = $('analyticsStatus');
   const button = $('runAnalytics');
   const forecasts = loadConfirmedForecasts();
-  status.classList.remove('error');
+  const active = currentAnalyticsMode() === 'confirmed';
+  if (active) status.classList.remove('error');
   if (!forecasts.length) {
     latestConfirmedPayload = null;
-    latestAnalytics = null;
-    $('analyticsOutput').hidden = false;
-    $('downloadAnalytics').hidden = true;
-    $('analyticsSummary').innerHTML = '';
-    $('analyticsTable').innerHTML = '<div class="empty"><strong>No confirmed forecasts yet</strong><p>Only dates confirmed on the forecast results page will appear here.</p></div>';
-    renderConfirmedDailyTable([]);
-    renderLineChart('hitsChart', [], 'hits');
-    renderLineChart('roiChart', [], 'cumulative_roi', true);
-    $('analyticsPeriodLabel').textContent = 'No confirmed dates';
-    status.textContent = 'Run and confirm a prospective Top-3 forecast to begin the journal.';
+    if (active) {
+      renderEmptyConfirmedAnalytics();
+      status.textContent = 'Run and confirm a prospective Top-3 forecast to begin the journal.';
+    }
     return null;
   }
-  if (button) button.disabled = true;
-  if (!quiet) setConnection('Settling confirmations');
-  status.textContent = 'Checking confirmed forecasts against the live draw...';
+  if (active && button) button.disabled = true;
+  if (active && !quiet) setConnection('Settling confirmations');
+  if (active) status.textContent = 'Checking confirmed forecasts against the live draw...';
   try {
     const payload = await postJson('/api/confirmed/settle', { source: 'live', forecasts });
-    renderConfirmedAnalytics(payload);
-    status.textContent = `${payload.analytics.settled_count} settled · ${payload.analytics.pending_count} pending · ${payload.analytics.confirmed_count} confirmed.`;
-    if (!quiet) setConnection('API ready');
+    latestConfirmedPayload = payload;
+    if (currentAnalyticsMode() === 'confirmed') {
+      renderConfirmedAnalytics(payload);
+      status.textContent = `${payload.analytics.settled_count} settled · ${payload.analytics.pending_count} pending · ${payload.analytics.confirmed_count} confirmed.`;
+      if (!quiet) setConnection('API ready');
+    }
     return payload;
   } finally {
     if (button) button.disabled = false;
@@ -716,25 +890,44 @@ function downloadCsv(payload) {
 }
 
 function downloadAnalyticsCsv() {
-  if (!latestConfirmedPayload) return;
-  const headers = ['confirmation_id', 'confirmed_at_utc', 'target_date', 'status', 'numbers', 'matching_numbers', 'hits', 'paid_occurrences', 'stake', 'receipts', 'profit', 'roi'];
-  const rows = [headers, ...latestConfirmedPayload.records.map((record) => headers.map((header) => {
-    if (header === 'numbers') return record.numbers.join(' ');
-    if (header === 'matching_numbers') return (record.matching_numbers || []).map((item) => `${item.number}x${item.count}`).join(' ');
-    if (header === 'roi') return record.status === 'settled' && record.stake ? record.profit / record.stake : '';
-    return record[header] ?? '';
-  }))];
+  let rows;
+  let filename;
+  if (currentAnalyticsMode() === 'confirmed') {
+    if (!latestConfirmedPayload) return;
+    const headers = ['confirmation_id', 'confirmed_at_utc', 'target_date', 'status', 'numbers', 'matching_numbers', 'hits', 'paid_occurrences', 'stake', 'receipts', 'profit', 'roi'];
+    rows = [headers, ...latestConfirmedPayload.records.map((record) => headers.map((header) => {
+      if (header === 'numbers') return record.numbers.join(' ');
+      if (header === 'matching_numbers') return (record.matching_numbers || []).map((item) => `${item.number}x${item.count}`).join(' ');
+      if (header === 'roi') return record.status === 'settled' && record.stake ? record.profit / record.stake : '';
+      return record[header] ?? '';
+    }))];
+    filename = 'xsmb_confirmed_top3_forecasts.csv';
+  } else {
+    if (!latestAssumptionAnalytics) return;
+    const headers = ['schema_version', 'model_id', 'model_name', 'date', 'hits', 'hit', 'precision_at_k', 'recall_at_k', 'selections', 'paid_occurrences', 'stake', 'receipts', 'profit', 'roi', 'cumulative_profit', 'cumulative_roi', 'drawdown'];
+    rows = [headers];
+    latestAssumptionAnalytics.models.forEach((model) => model.series.forEach((row) => {
+      rows.push(headers.map((header) => {
+        if (header === 'schema_version') return latestAssumptionAnalytics.schema_version;
+        if (header === 'model_id') return model.model_id;
+        if (header === 'model_name') return model.model_name;
+        return row[header];
+      }));
+    }));
+    const period = latestAssumptionAnalytics.period;
+    filename = `xsmb_assumption_top3_${period.start_date}_${period.end_date}.csv`;
+  }
   const csv = rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  link.download = 'xsmb_confirmed_top3_forecasts.csv';
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(link.href);
 }
 
 document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
   setPage(button.dataset.view);
-  if (button.dataset.view === 'analytics') refreshConfirmedAnalytics().catch((error) => {
+  if (button.dataset.view === 'analytics') syncAnalyticsMode({ refresh: true }).catch((error) => {
     $('analyticsStatus').textContent = error.message;
     $('analyticsStatus').classList.add('error');
   });
@@ -759,6 +952,16 @@ $('reset').addEventListener('click', () => {
   $('status').textContent = 'Form reset.';
 });
 $('historyFilter').addEventListener('change', renderHistory);
+$('analyticsMode').addEventListener('change', () => {
+  syncAnalyticsMode({ refresh: true }).catch((error) => {
+    $('analyticsStatus').textContent = error.message;
+    $('analyticsStatus').classList.add('error');
+  });
+});
+$('analyticsPeriod').addEventListener('change', updateAnalyticsDates);
+$('analyticsModelFilter').addEventListener('change', (event) => {
+  if (currentAnalyticsMode() === 'assumption') renderAnalyticsDailyTable(event.target.value);
+});
 $('downloadAnalytics').addEventListener('click', downloadAnalyticsCsv);
 $('refreshSource').addEventListener('click', () => {
   refreshGithubSource().catch(() => {});
@@ -788,13 +991,17 @@ $('setupForm').addEventListener('submit', async (event) => {
 });
 $('analyticsForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  try { await refreshConfirmedAnalytics(); }
+  try {
+    if (currentAnalyticsMode() === 'confirmed') await refreshConfirmedAnalytics();
+    else await runAssumptionAnalytics();
+  }
   catch (error) {
     $('analyticsStatus').textContent = error.message;
     $('analyticsStatus').classList.add('error');
     setConnection('Needs attention', true);
   }
 });
+syncAnalyticsMode();
 loadSources().catch((error) => {
   $('status').textContent = error.message;
   $('status').classList.add('error');

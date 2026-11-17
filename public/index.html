@@ -40,13 +40,23 @@
 
         <section class="page" id="page-analytics" hidden>
           <div class="page-head">
-            <div><div class="page-kicker">CONFIRMED PERFORMANCE</div><h1 class="page-title">Confirmed forecast charts</h1><p class="page-lede">Charts include only unresolved Top-3 forecasts you explicitly confirmed before their draw became available.</p></div>
-            <div class="page-head-actions"><button class="btn" id="downloadAnalytics" type="button" hidden>Download chart data</button></div>
+            <div><div class="page-kicker" id="analyticsPageKicker">CONFIRMED PERFORMANCE</div><h1 class="page-title" id="analyticsPageTitle">Confirmed forecast charts</h1><p class="page-lede" id="analyticsPageLede">Charts include only unresolved Top-3 forecasts you explicitly confirmed before their draw became available.</p></div>
+            <div class="page-head-actions analytics-page-actions"><label class="chart-mode-switch" for="analyticsMode"><span>Chart basis</span><select id="analyticsMode"><option value="confirmed" selected>Confirmed forecasts</option><option value="assumption">Assume every draw date</option></select></label><button class="btn" id="downloadAnalytics" type="button" hidden>Download chart data</button></div>
           </div>
           <article class="panel analytics-controls">
-            <div class="panel-head"><div><h2>Confirmed forecast journal</h2><p>Refresh the live source to settle saved confirmations whose real draw is now available.</p></div><span class="eyebrow">Top-3 only</span></div>
+            <div class="panel-head"><div><h2 id="analyticsPanelTitle">Confirmed forecast journal</h2><p id="analyticsPanelDescription">Refresh the live source to settle saved confirmations whose real draw is now available.</p></div><span class="eyebrow" id="analyticsModeBadge">Top-3 only</span></div>
             <form id="analyticsForm">
-              <div class="notice"><strong>No every-day assumption</strong><br>Unconfirmed dates are excluded completely: no stake, no loss, and no hit. Pending confirmations appear below but enter hit-rate and ROI calculations only after settlement.</div>
+              <div id="confirmedAnalyticsControls"><div class="notice"><strong>Confirmed dates only</strong><br>Unconfirmed dates are excluded completely: no stake, no loss, and no hit. Pending confirmations appear below but enter hit-rate and ROI calculations only after settlement.</div></div>
+              <div id="assumptionAnalyticsControls" hidden>
+                <div class="notice"><strong>Historical assumption</strong><br>Every settled draw date in the selected period is treated as an assumed Top-3 forecast. These results are a walk-forward backtest, not user-confirmed forecasts.</div>
+                <div class="analytics-form-grid assumption-fields">
+                  <div class="field"><label for="analyticsPeriod">Time range</label><select id="analyticsPeriod"><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="custom">Custom dates</option></select></div>
+                  <div class="field"><label for="analyticsStart">Start date</label><input id="analyticsStart" type="date"></div>
+                  <div class="field"><label for="analyticsEnd">End date</label><input id="analyticsEnd" type="date"></div>
+                  <div class="field"><label for="analyticsTopK">Ranking size (K)</label><input id="analyticsTopK" type="number" min="3" max="3" value="3" readonly><div class="hint">Assumption research is fixed to Top-3.</div></div>
+                </div>
+                <fieldset class="model-picker"><legend>Models to compare</legend><label><input type="checkbox" name="analyticsModel" value="baseline"><span>Frequency baseline</span></label><label><input type="checkbox" name="analyticsModel" value="lightgbm"><span>Boosted trees</span></label><label><input type="checkbox" name="analyticsModel" value="regularized"><span>Regularized presence</span></label><label><input type="checkbox" name="analyticsModel" value="poisson"><span>Poisson count</span></label><label><input type="checkbox" name="analyticsModel" value="poisson_prize_90d" checked><span>Poisson Prize 90d</span></label></fieldset>
+              </div>
               <div class="form-actions"><button class="btn btn-primary" id="runAnalytics" type="submit">Refresh confirmed results</button></div>
               <div class="form-status" id="analyticsStatus" aria-live="polite">No confirmed forecast data loaded yet.</div>
             </form>
@@ -57,8 +67,8 @@
               <article class="panel"><div class="panel-head"><div><h2>Distinct hits per day</h2><p>A hit is one selected number present at least once in the draw.</p></div><span class="eyebrow">Daily</span></div><div class="chart-wrap" id="hitsChart"></div></article>
               <article class="panel"><div class="panel-head"><div><h2>Cumulative ROI</h2><p>Profit divided by cumulative stake under the displayed payout rule.</p></div><span class="eyebrow">Percent</span></div><div class="chart-wrap" id="roiChart"></div></article>
             </div>
-            <article class="panel" style="margin-top:18px"><div class="panel-head"><div><h2>Confirmed results</h2><p>Totals include settled confirmed dates only.</p></div><span class="eyebrow" id="analyticsPeriodLabel">--</span></div><div class="table-wrap" id="analyticsTable"></div></article>
-            <article class="panel" style="margin-top:18px"><div class="panel-head"><div><h2>Confirmation ledger</h2><p>Pending dates have no stake or performance impact until the real draw is available.</p></div><span id="analyticsModelFilter" class="eyebrow">Poisson Prize 90d · Top-3</span></div><div class="table-wrap analytics-daily-table" id="analyticsDailyTable"></div></article>
+            <article class="panel" style="margin-top:18px"><div class="panel-head"><div><h2 id="analyticsResultsTitle">Confirmed results</h2><p id="analyticsResultsDescription">Totals include settled confirmed dates only.</p></div><span class="eyebrow" id="analyticsPeriodLabel">--</span></div><div class="table-wrap" id="analyticsTable"></div></article>
+            <article class="panel" style="margin-top:18px"><div class="panel-head"><div><h2 id="analyticsDailyTitle">Confirmation ledger</h2><p id="analyticsDailyDescription">Pending dates have no stake or performance impact until the real draw is available.</p></div><select id="analyticsModelFilter" class="compact-select" disabled><option>Poisson Prize 90d · Top-3</option></select></div><div class="table-wrap analytics-daily-table" id="analyticsDailyTable"></div></article>
           </div>
         </section>
 
